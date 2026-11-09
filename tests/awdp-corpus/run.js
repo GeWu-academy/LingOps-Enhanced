@@ -31,7 +31,7 @@ console.log = _stdout;
 const VERBOSE = process.argv.includes('-v') || process.argv.includes('--verbose');
 const JSONOUT = process.argv.includes('--json');
 
-const LANG = { '.php': 'php', '.py': 'python', '.js': 'node', '.java': 'java', '.go': 'go', '.rb': 'ruby' };
+const LANG = { '.php': 'php', '.py': 'python', '.js': 'node', '.java': 'java', '.go': 'go', '.rb': 'ruby', '.cs': 'csharp', '.asp': 'asp' };
 const CORPUS = path.join(HERE, 'corpus');
 
 // expect: 'hit' = 每个文件都必须报出问题；'clean' = 一个都不许报；'high' = 必须报出高危以上
@@ -39,6 +39,7 @@ const SUITES = [
   { dir: 'vuln', expect: 'hit', label: '真漏洞' },
   { dir: 'safe', expect: 'clean', label: '安全代码' },
   { dir: 'regress', expect: 'hit', label: '回归' },
+  { dir: 'modern', expect: 'hit', label: '新型漏洞' },
   { dir: 'adversarial', expect: 'high', label: '对抗语料',
     // 已文档化的盲区：obj[k]=v 与 arr[i]=x 在无类型信息时不可区分，只报低置信
     knownMiss: ['x08_js_proto_direct.js'] }

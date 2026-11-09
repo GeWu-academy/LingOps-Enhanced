@@ -22,3 +22,10 @@ __pycache__/
 # ── 构建产物 ─────────────────────────────────────────────────────
 *.zip
 dist/
+# 但注入层是源码，必须入库（其余 dist/ 是官方构建产物，不入库）
+!/frontend/dist/
+frontend/dist/*
+!/frontend/dist/assets_v2/
+frontend/dist/assets_v2/*
+!/frontend/dist/assets_v2/lp-ext/
+!/frontend/dist/assets_v2/lp-ext/**

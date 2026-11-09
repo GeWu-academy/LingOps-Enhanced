@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>端口 / 上传点扫描 · LingOps 扩展</title>
+<style>
+  :root{
+    --bg:#101418; --panel:#171d23; --panel2:#1d242c; --border:#2a323b;
+    --text:#e6edf3; --muted:#8b98a5; --accent:#1890ff; --accent2:#40a9ff;
+    --ok:#52c41a; --warn:#faad14; --danger:#ff4d4f;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font:13px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:1320px;margin:0 auto;padding:16px 18px 40px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .title{font-size:17px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .tag{font-size:11px;font-weight:400;color:var(--accent);border:1px solid rgba(24,144,255,.5);
+    border-radius:10px;padding:1px 8px}
+  .right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .chip{font-size:12px;border-radius:12px;padding:2px 10px;border:1px solid var(--border);color:var(--muted)}
+  .chip.on{color:var(--ok);border-color:rgba(82,196,26,.5)}
+  .chip.off{color:var(--danger);border-color:rgba(255,77,79,.5)}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+  .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-weight:600}
+  label{display:block;font-size:12px;color:var(--muted);margin:8px 0 5px}
+  label small{color:#5f6b76;font-weight:400}
+  input[type=text],input:not([type]),textarea,select{
+    width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:6px;
+    color:var(--text);padding:7px 9px;font:inherit;outline:none}
+  input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+  textarea{resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+  button{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;
+    padding:6px 14px;font:inherit;cursor:pointer;transition:.15s}
+  button:hover:not(:disabled){border-color:var(--accent);color:var(--accent2)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover:not(:disabled){background:var(--accent2);color:#fff}
+  button.mini{padding:2px 9px;font-size:12px}
+  .grid2{display:grid;grid-template-columns:1.15fr 1fr;gap:18px}
+  .grid2.tight{gap:10px}
+  @media(max-width:900px){.grid2{grid-template-columns:1fr}}
+  .row{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
+  .muted{color:var(--muted);font-size:12px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .chips span{font-size:12px;padding:3px 10px;border:1px solid var(--border);border-radius:12px;
+    cursor:pointer;color:var(--muted)}
+  .chips span:hover{border-color:var(--accent);color:var(--accent2)}
+  .toggles{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px dashed var(--border)}
+  .toggles label{display:flex;align-items:center;gap:6px;margin:0;color:var(--text);font-size:12.5px;cursor:pointer}
+  .toggles input{accent-color:var(--accent)}
+  .actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .pbar{height:8px;background:var(--panel2);border-radius:6px;overflow:hidden}
+  .pbar>div{height:100%;width:0;background:linear-gradient(90deg,var(--accent),#52c41a);transition:width .3s}
+  .pinfo{display:flex;gap:18px;margin-top:8px;font-size:12px;color:var(--muted)}
+  .cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px}
+  @media(max-width:900px){.cards{grid-template-columns:repeat(2,1fr)}}
+  .metric{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 14px}
+  .m-label{font-size:12px;color:var(--muted)}
+  .m-val{font-size:22px;font-weight:600;margin-top:2px}
+  .m-val.danger{color:var(--danger)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:500;background:var(--panel2);white-space:nowrap}
+  tbody tr:hover{background:rgba(24,144,255,.06)}
+  .risk{font-size:11px;border-radius:9px;padding:1px 8px;border:1px solid;white-space:nowrap}
+  .risk.high{color:var(--danger);border-color:rgba(255,77,79,.55);background:rgba(255,77,79,.1)}
+  .risk.medium{color:var(--warn);border-color:rgba(250,173,20,.55);background:rgba(250,173,20,.1)}
+  .risk.low{color:var(--accent2);border-color:rgba(64,169,255,.5);background:rgba(24,144,255,.1)}
+  .risk.none{color:var(--muted);border-color:var(--border)}
+  .empty{color:var(--muted);text-align:center;padding:26px 0;font-size:12.5px}
+  .logs{background:#0b0f13;border:1px solid var(--border);border-radius:8px;padding:10px 12px;
+    height:170px;overflow:auto;font-size:12px;color:#9fb0c0;white-space:pre-wrap;margin:0}
+  .detail{background:#12181e}
+  .detail-inner{padding:4px 6px 12px 6px}
+  .sub-title{font-size:12px;color:var(--muted);margin:10px 0 6px;font-weight:600}
+  .port-line{display:flex;gap:10px;align-items:baseline;padding:3px 0;border-bottom:1px dotted #222c35}
+  .port-num{font-family:ui-monospace,Menlo,monospace;color:var(--accent2);min-width:58px}
+  .svc{font-size:11px;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:0 6px}
+  .find{padding:6px 8px;border-left:2px solid var(--border);margin:5px 0;background:#151b22;border-radius:0 6px 6px 0}
+  .find.high{border-left-color:var(--danger)}
+  .find.medium{border-left-color:var(--warn)}
+  .find.low{border-left-color:var(--accent)}
+  .find .u{font-family:ui-monospace,Menlo,monospace;color:#c9d6e2;word-break:break-all}
+  .find .e{color:var(--muted);font-size:12px;margin-top:2px}
+  .find .s{color:#7c8b99;font-size:11px;margin-top:2px;font-family:ui-monospace,Menlo,monospace;word-break:break-all}
+  .toast{position:fixed;top:18px;left:50%;transform:translateX(-50%);background:#1f2933;border:1px solid var(--border);
+    color:var(--text);padding:8px 18px;border-radius:8px;font-size:13px;z-index:99;opacity:0;transition:.2s}
+  .toast.show{opacity:1}
+  .hint{font-size:12px;color:var(--warn);background:rgba(250,173,20,.08);border:1px solid rgba(250,173,20,.35);
+    border-radius:8px;padding:8px 12px;margin-bottom:12px;display:none}
+  .hint.show{display:block}
+  code{background:#0b0f13;border:1px solid var(--border);border-radius:4px;padding:0 5px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="title">端口 / 上传点扫描 <span class="tag">LingOps 扩展</span></div>
+    <div class="right">
+      <span id="backend" class="chip">检测中…</span>
+      <button id="btn-export-json" disabled>导出 JSON</button>
+      <button id="btn-export-csv" disabled>导出 CSV</button>
+    </div>
+  </header>
+
+  <div class="hint" id="hint"></div>
+
+  <section class="card">
+    <div class="grid2">
+      <div>
+        <label>扫描目标 <small>IP / CIDR / 域名 / 1.2.3.1-20，换行或逗号分隔</small></label>
+        <textarea id="targets" rows="6" placeholder="192.168.1.10&#10;10.0.0.0/24&#10;example.com&#10;http://1.2.3.4:8080"></textarea>
+        <div class="row">
+          <button id="btn-import">从资产库导入</button>
+          <button id="btn-paste">读取剪贴板</button>
+          <span class="muted" id="target-count">0 个目标</span>
+        </div>
+      </div>
+      <div>
+        <label>端口范围 <small>支持 80,443,8000-8100</small></label>
+        <input id="ports" value="common" />
+        <div class="chips">
+          <span data-preset="web">Web 常用</span>
+          <span data-preset="common">常用端口</span>
+          <span data-preset="top100">Top 100</span>
+          <span data-preset="all">全端口 1-65535</span>
+        </div>
+        <div class="grid2 tight">
+          <div><label>连接超时（秒）</label><input id="timeout" value="1.0" /></div>
+          <div><label>并发线程</label><input id="concurrency" value="300" /></div>
+        </div>
+        <label>上传点探测强度</label>
+        <select id="strength">
+          <option value="fast">快速（12 个常见路径）</option>
+          <option value="standard" selected>标准（45 个常见路径）</option>
+          <option value="deep">深度（含更多路径）</option>
+        </select>
+      </div>
+    </div>
+    <div class="toggles">
+      <label><input type="checkbox" id="do-http" checked /> HTTP 探测（标题 / 状态 / Server）</label>
+      <label><input type="checkbox" id="upload-detect" checked /> 上传点探测</label>
+      <label><input type="checkbox" id="active-upload" /> 主动上传测试（发送测试文件）</label>
+      <label><input type="checkbox" id="dangerous-ext" /> 危险扩展名测试（.php/.jsp/.aspx）</label>
+    </div>
+    <div class="actions">
+      <button id="btn-start" class="primary">开始扫描</button>
+      <button id="btn-stop" disabled>停止</button>
+      <button id="btn-clear">清空结果</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span>深度探活 <span class="muted" style="font-weight:400">ICMP + TCP 兜底 · 专治「ping 不通但 80 开着」</span></span>
+      <span class="muted" id="disc-tip"></span>
+    </div>
+    <div class="grid2 tight">
+      <div>
+        <label>探测目标 <small>留空则复用上面「扫描目标」；支持 CIDR / 1.2.3.1-20</small></label>
+        <input id="disc-targets" placeholder="192.168.1.0/24" />
+      </div>
+      <div>
+        <label>单次超时（秒） <small>内网 0.5~1.0，跨网段 1.5</small></label>
+        <input id="disc-timeout" value="0.8" />
+        <div class="toggles">
+          <label><input type="checkbox" id="disc-icmp" checked /> 先发 ICMP（关掉 = 纯 TCP 探活）</label>
+        </div>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="btn-discover" class="primary">开始探活</button>
+      <button id="btn-disc-to-scan" disabled>在线主机填入扫描目标</button>
+      <button id="btn-disc-clear">清空</button>
+    </div>
+    <div id="disc-wrap" style="display:none;margin-top:12px">
+      <table id="disc-tbl">
+        <thead><tr><th style="width:160px">IP</th><th style="width:100px">判定</th>
+          <th style="width:120px">探测方式</th><th style="width:80px">RTT</th><th>说明</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card" id="progress-card" style="display:none">
+    <div class="pbar"><div id="pbar"></div></div>
+    <div class="pinfo">
+      <span id="phase">准备中</span>
+      <span id="pcount">0 / 0</span>
+      <span id="ptime">0s</span>
+      <span id="popen">开放端口 0</span>
+    </div>
+  </section>
+
+  <section class="cards">
+    <div class="metric"><div class="m-label">存活主机</div><div class="m-val" id="m-hosts">0</div></div>
+    <div class="metric"><div class="m-label">开放端口</div><div class="m-val" id="m-ports">0</div></div>
+    <div class="metric"><div class="m-label">Web 服务</div><div class="m-val" id="m-web">0</div></div>
+    <div class="metric"><div class="m-label">上传点</div><div class="m-val" id="m-upload">0</div></div>
+    <div class="metric"><div class="m-label">高危主机</div><div class="m-val danger" id="m-risk">0</div></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span>扫描结果</span>
+      <span class="right">
+        <span class="muted" id="result-tip"></span>
+        <button class="mini" id="btn-save-assets" disabled>写入资产库</button>
+      </span>
+    </div>
+    <table id="tbl">
+      <thead>
+        <tr><th style="width:190px">目标</th><th>开放端口</th><th>Web</th><th>上传点</th>
+            <th style="width:90px">风险</th><th style="width:90px">操作</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div id="empty" class="empty">暂无数据，先开始一次扫描</div>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><span>运行日志</span><button class="mini" id="btn-clearlog">清空</button></div>
+    <pre id="logs" class="logs"></pre>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  const qs = new URLSearchParams(location.search);
+  const API = qs.get('api') || (location.protocol + '//' + location.hostname + ':12801');
+  const $ = (id) => document.getElementById(id);
+  const state = { jobId: null, timer: null, snap: null, running: false };
+
+  function toast(msg, ms) {
+    const el = $('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), ms || 2200);
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  async function api(path, opts) {
+    const res = await fetch(API + path, opts);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+
+  // ---------------- 后端健康检查 ----------------
+  async function checkBackend() {
+    const chip = $('backend');
+    try {
+      const h = await api('/api/health');
+      chip.textContent = '扫描服务已连接 · v' + h.version;
+      chip.className = 'chip on';
+      $('hint').classList.remove('show');
+      return true;
+    } catch (e) {
+      chip.textContent = '扫描服务未启动';
+      chip.className = 'chip off';
+      const hint = $('hint');
+      hint.innerHTML = '扫描服务未运行。请在工具目录执行 <code>bash start-ext.sh</code> 启动（或 <code>python3 ext/lp_scan_server.py</code>），然后刷新本页。';
+      hint.classList.add('show');
+      return false;
+    }
+  }
+
+  // ---------------- 目标计数 ----------------
+  function countTargets() {
+    const parts = ($('targets').value || '').split(/[\s,;，；]+/).filter(Boolean);
+    $('target-count').textContent = parts.length + ' 个目标';
+  }
+
+  // ---------------- 开始 / 停止 ----------------
+  async function start() {
+    const targets = ($('targets').value || '').trim();
+    if (!targets) { toast('请先填写扫描目标'); return; }
+    if (!(await checkBackend())) return;
+
+    const body = {
+      targets,
+      ports: $('ports').value.trim() || 'common',
+      timeout: parseFloat($('timeout').value) || 1.0,
+      concurrency: parseInt($('concurrency').value, 10) || 300,
+      do_http: $('do-http').checked,
+      upload_detect: $('upload-detect').checked,
+      active_upload: $('active-upload').checked && $('upload-detect').checked,
+      dangerous_ext: $('dangerous-ext').checked && $('active-upload').checked,
+      strength: $('strength').value
+    };
+
+    try {
+      $('btn-start').disabled = true;
+      const r = await api('/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      state.jobId = r.job_id;
+      state.running = true;
+      state.snap = null;
+      $('progress-card').style.display = 'block';
+      $('logs').textContent = '';
+      $('btn-stop').disabled = false;
+      $('btn-export-json').disabled = true;
+      $('btn-export-csv').disabled = true;
+      $('btn-save-assets').disabled = true;
+      $('tbl').querySelector('tbody').innerHTML = '';
+      $('empty').style.display = 'block';
+      $('empty').textContent = '扫描进行中…';
+      poll();
+    } catch (e) {
+      $('btn-start').disabled = false;
+      toast('启动失败：' + e.message);
+    }
+  }
+
+  async function stop() {
+    if (!state.jobId) return;
+    try { await api('/api/jobs/' + state.jobId + '/cancel', { method: 'POST' }); toast('已请求停止'); }
+    catch (e) { toast('停止失败：' + e.message); }
+  }
+
+  function poll() {
+    clearTimeout(state.timer);
+    if (!state.jobId) return;
+    const jobId = state.jobId;
+    api('/api/jobs/' + jobId).then(snap => {
+      if (state.jobId !== jobId) return;
+      state.snap = snap;
+      render(snap);
+      if (snap.status === 'running' || snap.status === 'pending') {
+        state.timer = setTimeout(poll, 1000);
+      } else {
+        state.running = false;
+        $('btn-start').disabled = false;
+        $('btn-stop').disabled = true;
+        $('btn-export-json').disabled = false;
+        $('btn-export-csv').disabled = false;
+        $('btn-save-assets').disabled = !(snap.hosts || []).length;
+        toast(snap.status === 'completed' ? '扫描完成' : (snap.status === 'cancelled' ? '已停止' : '扫描失败'));
+      }
+    }).catch(() => { state.timer = setTimeout(poll, 2000); });
+  }
+
+  // ---------------- 渲染 ----------------
+  function riskLabel(r) {
+    const map = { high: '高危', medium: '中危', low: '低危', none: '—' };
+    return '<span class="risk ' + (r || 'none') + '">' + (map[r] || r || '—') + '</span>';
+  }
+
+  function render(snap) {
+    const hosts = snap.hosts || [];
+    const openPorts = hosts.reduce((n, h) => n + (h.ports || []).length, 0);
+    const webs = hosts.reduce((n, h) => n + (h.web || []).length, 0);
+    const ups = hosts.reduce((n, h) => n + (h.upload || []).reduce((m, u) => m + (u.items || []).length, 0), 0);
+    const risky = hosts.filter(h => h.risk === 'high').length;
+
+    $('m-hosts').textContent = hosts.length;
+    $('m-ports').textContent = openPorts;
+    $('m-web').textContent = webs;
+    $('m-upload').textContent = ups;
+    $('m-risk').textContent = risky;
+
+    const pct = snap.total ? Math.min(100, Math.round(snap.done * 100 / snap.total)) : 0;
+    $('pbar').style.width = pct + '%';
+    $('phase').textContent = snap.phase || snap.status;
+    $('pcount').textContent = snap.done + ' / ' + snap.total;
+    $('ptime').textContent = snap.elapsed + 's';
+    $('popen').textContent = '开放端口 ' + openPorts;
+    $('logs').textContent = (snap.logs || []).join('\n');
+    $('logs').scrollTop = $('logs').scrollHeight;
+
+    const tbody = $('tbl').querySelector('tbody');
+    if (!hosts.length) {
+      tbody.innerHTML = '';
+      $('empty').style.display = 'block';
+      if (!state.running) $('empty').textContent = '没有发现开放端口';
+      return;
+    }
+    $('empty').style.display = 'none';
+
+    tbody.innerHTML = hosts.map((h, i) => {
+      const portChips = (h.ports || []).slice(0, 14).map(p =>
+        '<span class="port-num" style="display:inline-block;min-width:auto;margin-right:6px">' + p.port + '</span>'
+      ).join('') + ((h.ports || []).length > 14 ? '<span class="muted">+' + ((h.ports || []).length - 14) + '</span>' : '');
+      const upCount = (h.upload || []).reduce((m, u) => m + (u.items || []).length, 0);
+      return '<tr data-i="' + i + '">' +
+        '<td><b>' + esc(h.ip) + '</b></td>' +
+        '<td>' + portChips + '</td>' +
+        '<td>' + ((h.web || []).length ? h.web.length + ' 个' : '<span class="muted">—</span>') + '</td>' +
+        '<td>' + (upCount ? '<b style="color:var(--warn)">' + upCount + '</b>' : '<span class="muted">—</span>') + '</td>' +
+        '<td>' + riskLabel(h.risk) + '</td>' +
+        '<td><button class="mini" data-detail="' + i + '">详情</button></td>' +
+        '</tr>' +
+        '<tr class="detail" data-detail-row="' + i + '" style="display:none"><td colspan="6">' +
+        renderDetail(h) + '</td></tr>';
+    }).join('');
+
+    tbody.querySelectorAll('[data-detail]').forEach(btn => {
+      btn.onclick = () => {
+        const row = tbody.querySelector('[data-detail-row="' + btn.dataset.detail + '"]');
+        const show = row.style.display === 'none';
+        row.style.display = show ? 'table-row' : 'none';
+        btn.textContent = show ? '收起' : '详情';
+      };
+    });
+
+    $('result-tip').textContent = hosts.length + ' 台主机有开放端口';
+  }
+
+  function renderDetail(h) {
+    let html = '<div class="detail-inner">';
+    const webMap = {};
+    (h.web || []).forEach(w => { webMap[w.port] = w; });
+
+    html += '<div class="sub-title">端口 / 服务</div>';
+    (h.ports || []).forEach(p => {
+      const w = webMap[p.port];
+      html += '<div class="port-line"><span class="port-num">' + p.port + '</span>' +
+        '<span class="svc">' + esc(p.service || 'unknown') + '</span>' +
+        (w ? '<span class="muted">HTTP ' + esc(w.status) + ' · ' + esc(w.title || '无标题') +
+             (w.server ? ' · ' + esc(w.server) : '') + '</span>'
+           : (p.banner ? '<span class="muted">' + esc(p.banner.slice(0, 110)) + '</span>' : '')) +
+        '</div>';
+    });
+
+    (h.upload || []).forEach(u => {
+      html += '<div class="sub-title">上传点探测 · 端口 ' + u.port +
+        ' · ' + riskLabel(u.score) + '</div>';
+      (u.items || []).forEach(it => {
+        const typeMap = {
+          form: '上传表单', keyword: '页面特征', page: '上传页面', endpoint: '疑似接口',
+          dirlist: '目录可列举', method: '危险方法', upload: '上传被接受', dangerous: '危险扩展名'
+        };
+        html += '<div class="find ' + it.risk + '">' +
+          '<div><b>' + (typeMap[it.type] || it.type) + '</b> ' + riskLabel(it.risk) + '</div>' +
+          '<div class="u">' + esc(it.url) + '</div>' +
+          '<div class="e">' + esc(it.evidence) + '</div>' +
+          (it.snippet ? '<div class="s">' + esc(it.snippet) + '</div>' : '') +
+          '</div>';
+      });
+    });
+    if (!(h.upload || []).length) {
+      html += '<div class="muted" style="margin-top:8px">未发现上传相关特征</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  // ---------------- 资产库 ----------------
+  async function loadAssets() {
+    const token = localStorage.getItem('lingops_token');
+    if (!token) { toast('未登录 LingOps，无法读取资产'); return null; }
+    const res = await fetch('/api/v1/assets?page=1&page_size=500', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    return json.data || [];
+  }
+
+  async function importAssets() {
+    try {
+      const list = await loadAssets();
+      if (!list) return;
+      const ips = [];
+      list.forEach(a => {
+        if ((a.type || 'host') !== 'host') return;
+        const ip = a.ip_address || a.target;
+        if (ip && !ips.includes(ip)) ips.push(ip);
+      });
+      if (!ips.length) { toast('资产库暂无主机资产'); return; }
+      $('targets').value = ips.join('\n');
+      countTargets();
+      toast('已导入 ' + ips.length + ' 个资产目标');
+    } catch (e) { toast('导入失败：' + e.message); }
+  }
+
+  async function saveAssets() {
+    if (!state.snap) return;
+    const token = localStorage.getItem('lingops_token');
+    if (!token) { toast('未登录 LingOps'); return; }
+    try {
+      const existing = new Set(((await loadAssets()) || []).map(a => a.ip_address || a.target));
+      const hosts = (state.snap.hosts || []).filter(h => (h.ports || []).length);
+      let created = 0;
+      for (const h of hosts) {
+        if (existing.has(h.ip)) continue;
+        const ports = (h.ports || []).map(p => p.port).join(',');
+        const res = await fetch('/api/v1/assets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({
+            name: h.ip, type: 'host', target: h.ip, ip_address: h.ip, port: 0,
+            protocol: 'tcp', status: 'online', service: '',
+            tags: { source: 'portscan' }, metadata: { open_ports: ports }
+          })
+        });
+        if (res.ok) created++;
+      }
+      toast(created ? '已写入 ' + created + ' 条资产' : '资产已存在，未重复写入');
+    } catch (e) { toast('写入失败：' + e.message); }
+  }
+
+  // ---------------- 深度探活（ICMP + TCP） ----------------
+  const discState = { hosts: [], busy: false };
+
+  const DISC_LABEL = {
+    'icmp': 'ICMP 回包',
+    'tcp-open': 'TCP 端口开放',
+    'tcp-refused': 'TCP 拒绝(RST)'
+  };
+
+  function discReason(h) {
+    if (!h.alive) return 'ICMP 无响应，且常见端口全部超时（可能真离线 / 防火墙全 DROP）';
+    if (h.method === 'icmp') return 'ICMP echo 有回包';
+    if (h.method === 'tcp-open') return '丢弃 ICMP，但 TCP ' + h.port + ' 可连接 → 靶机常见形态';
+    if (h.method === 'tcp-refused') return '丢弃 ICMP，但回了 TCP RST → 主机在线、端口全关';
+    return '';
+  }
+
+  function renderDiscover(stats) {
+    const tb = $('disc-tbl').querySelector('tbody');
+    const rows = discState.hosts;
+    tb.innerHTML = rows.map(h => {
+      const ok = h.alive;
+      const cls = ok ? 'low' : 'none';
+      return '<tr><td>' + esc(h.ip) + '</td>' +
+        '<td><span class="risk ' + cls + '">' + (ok ? '在线' : '未响应') + '</span></td>' +
+        '<td>' + esc(DISC_LABEL[h.method] || '—') + '</td>' +
+        '<td>' + (h.rtt == null ? '—' : h.rtt + ' ms') + '</td>' +
+        '<td>' + esc(discReason(h)) + '</td></tr>';
+    }).join('');
+    $('disc-wrap').style.display = rows.length ? 'block' : 'none';
+    $('btn-disc-to-scan').disabled = !rows.some(h => h.alive);
+    if (stats) {
+      $('disc-tip').textContent = '共 ' + stats.total + ' 个 · 在线 ' + stats.alive +
+        '（ICMP ' + stats.by_icmp + ' / TCP ' + stats.by_tcp + '）· ' + stats.elapsed_ms + ' ms';
+    }
+  }
+
+  async function discover() {
+    if (discState.busy) return;
+    const targets = ($('disc-targets').value || $('targets').value || '').trim();
+    if (!targets) { toast('请填写探测目标'); return; }
+    if (!(await checkBackend())) return;
+    discState.busy = true;
+    $('btn-discover').disabled = true;
+    $('btn-discover').textContent = '探测中…';
+    $('disc-tip').textContent = '探测中，网段越大越慢…';
+    try {
+      const data = await api('/api/discover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targets,
+          timeout: parseFloat($('disc-timeout').value) || 0.8,
+          icmp: $('disc-icmp').checked
+        })
+      });
+      discState.hosts = data.hosts || [];
+      renderDiscover(data.stats);
+      toast('在线 ' + (data.stats ? data.stats.alive : 0) + ' 个主机');
+    } catch (e) {
+      $('disc-tip').textContent = '探测失败';
+      toast('探活失败：' + e.message);
+    } finally {
+      discState.busy = false;
+      $('btn-discover').disabled = false;
+      $('btn-discover').textContent = '开始探活';
+    }
+  }
+
+  // ---------------- 事件绑定 ----------------
+  $('btn-discover').onclick = discover;
+  $('btn-disc-clear').onclick = () => {
+    discState.hosts = [];
+    $('disc-tbl').querySelector('tbody').innerHTML = '';
+    $('disc-wrap').style.display = 'none';
+    $('disc-tip').textContent = '';
+    $('btn-disc-to-scan').disabled = true;
+  };
+  $('btn-disc-to-scan').onclick = () => {
+    const ips = discState.hosts.filter(h => h.alive).map(h => h.ip);
+    if (!ips.length) { toast('没有在线主机'); return; }
+    $('targets').value = ips.join('\n');
+    countTargets();
+    toast('已填入 ' + ips.length + ' 个在线主机，可直接开始扫描');
+  };
+  $('btn-start').onclick = start;
+  $('btn-stop').onclick = stop;
+  $('btn-import').onclick = importAssets;
+  $('btn-save-assets').onclick = saveAssets;
+  $('btn-paste').onclick = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      $('targets').value = ($('targets').value ? $('targets').value + '\n' : '') + text;
+      countTargets();
+    } catch (e) { toast('读取剪贴板失败，请手动粘贴'); }
+  };
+  $('btn-clear').onclick = () => {
+    state.jobId = null;
+    clearTimeout(state.timer);
+    $('tbl').querySelector('tbody').innerHTML = '';
+    $('empty').style.display = 'block';
+    $('empty').textContent = '暂无数据，先开始一次扫描';
+    $('logs').textContent = '';
+    $('progress-card').style.display = 'none';
+    ['m-hosts', 'm-ports', 'm-web', 'm-upload', 'm-risk'].forEach(id => { $(id).textContent = '0'; });
+    $('btn-start').disabled = false;
+    $('btn-stop').disabled = true;
+    $('btn-export-json').disabled = true;
+    $('btn-export-csv').disabled = true;
+    $('btn-save-assets').disabled = true;
+  };
+  $('btn-clearlog').onclick = () => { $('logs').textContent = ''; };
+  $('btn-export-json').onclick = () => {
+    if (state.jobId) window.open(API + '/api/jobs/' + state.jobId + '/export?fmt=json', '_blank');
+  };
+  $('btn-export-csv').onclick = () => {
+    if (state.jobId) window.open(API + '/api/jobs/' + state.jobId + '/export?fmt=csv', '_blank');
+  };
+  document.querySelectorAll('.chips span').forEach(el => {
+    el.onclick = () => { $('ports').value = el.dataset.preset; };
+  });
+  $('targets').addEventListener('input', countTargets);
+  $('upload-detect').addEventListener('change', () => {
+    if (!$('upload-detect').checked) { $('active-upload').checked = false; }
+  });
+  $('active-upload').addEventListener('change', () => {
+    if ($('active-upload').checked) { $('upload-detect').checked = true; }
+    else { $('dangerous-ext').checked = false; }
+  });
+
+  if (location.hash === '#discover') {
+    const card = $('btn-discover').closest('section');
+    if (card) {
+      card.scrollIntoView({ block: 'start' });
+      $('disc-targets').focus();
+    }
+  }
+
+  checkBackend();
+  countTargets();
+  setInterval(checkBackend, 15000);
+})();
+</script>
+</body>
+</html>

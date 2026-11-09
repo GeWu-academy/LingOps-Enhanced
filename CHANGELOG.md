@@ -7,6 +7,55 @@
 
 ---
 
+## v1.3.4 · 2026-11-10
+
+### 深度审计规则库扩容：201 → 331 条
+
+官方引擎只认「sink 参数里有污点变量」，规则再少就更容易漏。这版把规则库翻了一倍多，并补上 2021 年以后常见的反序列化 / 认证 / 解压类漏洞。
+
+| 表 | v1.3.3 | v1.3.4 | 变化 |
+|---|---|---|---|
+| `SOURCES`（污点来源） | 66 | 66 | — |
+| `SINKS`（危险函数） | 114 | **212** | +98 |
+| `PATTERNS`（静态特征） | 21 | **53** | +32 |
+| **合计** | **201** | **331** | **+130** |
+
+新增规则类别：`nosqli`（NoSQL 注入）、`xpath`（XPath 注入）、`zip`（压缩包穿越）。
+
+新增覆盖（节选）：
+
+- **反序列化**：Jackson `autoTypeSupport` / `enableDefaultTyping`、Fastjson `JSON.parse*`、SnakeYAML `new Yaml()`、XStream `fromXML`、Newtonsoft `TypeNameHandling.*` / `SimpleTypeResolver`、C# `BinaryFormatter` / `LosFormatter` / `ObjectStateFormatter`、Python `torch.load` / `dill` / `yaml.load`、Ruby `Marshal.load` / `create_additions`
+- **认证**：JWT `algorithms: ['none']`、`jwt.decode` 不验签、硬编码 `secret`、`alg` 取自请求头
+- **注入**：MyBatis `${}` 拼接、NoSQL `$where` / `$ne` / `$regex`、XPath `xpath.compile` / `selectNodes`、LDAP `search` 拼接
+- **解压穿越**：`zip-slip`（`ZipEntry.getName` / `extractall` / `ZipFile.extract`）、`tar-slip`
+- **文件与命令**：`Path.Combine` 拼接请求参数、ASP `ADODB` 字符串拼接、Ruby `params.permit!`、`Open3` / `IO.popen` 包装
+- **框架特征**：Spring `class.module.classLoader`（CVE-2022-22965）、SSTI（SpEL / Thymeleaf / FreeMarker）、模板注入（EJS / Pug / Handlebars / Nunjucks）
+- **配置型**：`trust proxy`、CORS `credentials: true`、`HttpOnly=false`、`SameSite=None`、`allow_pickle=True`、`trust_remote_code=True`
+
+新增语言识别：`.cs` → C#、`.asp` / `.aspx` → ASP。
+
+### 引擎本身修了 3 处
+
+规则加得再多，被通道挡掉也是白加：
+
+1. **`LOW_CATS` 漏了新类别** —— 参数区里追不到污点的 sink 会被直接丢弃。补上 `nosqli` / `zip` / `xpath` 后，`$ne: null`、`ZipEntry.getName()` 这类写法才能出低置信提示。
+2. **`PATTERNS` 没有语言作用域** —— `JSON.parse(` 在 Node.js 里是安全的内置函数，在 Java 里是 Fastjson RCE。给 `PATTERNS` 加了可选 `lang: [...]` 字段，规则不再跨语言误报。
+3. **配置型特征走了错误的通道** —— `algorithms: ['none']`、`TypeNameHandling = TypeNameHandling.All` 这类写法没有「函数参数区」，sink 通道必然跳过。改由 `PATTERNS` 覆盖；同理 MyBatis 的 `@Select("... ${id}")` 特征写在字符串里，规则加了 `raw: true` 才能看到原始行。
+
+### 回归
+
+新增 `corpus/modern/` 套件 17 例（Fastjson、Jackson、SnakeYAML、XStream、Newtonsoft、JWT none、NoSQL、zip-slip、tar-slip、Spring4Shell、MyBatis、C# BinaryFormatter 等）。
+
+```
+真漏洞     34/34 = 100.0%
+安全代码   27/27 = 100.0%
+回归       12/12 = 100.0%
+新型漏洞   17/17 = 100.0%
+对抗语料   14/15 =  93.3%   （x08 为已知盲区）
+```
+
+---
+
 ## v1.3.3 · 2026-11-09
 
 ### 项目更名为 LingOps AWD/AWDP Enhanced

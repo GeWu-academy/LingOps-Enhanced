@@ -307,7 +307,7 @@ footer a:hover{color:var(--acc)}
 
         <p><strong>漏报 3：Go 语义引擎只覆盖文件操作。</strong></p>
 
-        <p><strong>解决：</strong>独立深度审计引擎 <code>awdpplus.js</code>（1906 行）做<strong>跨行污点分析</strong>：先抹掉注释和字符串（避免把文档里的 <code>system()</code> 当漏洞）但保留变量插值；从 source 出发沿赋值链传播到任意深度；追踪函数参数、数组元素、对象属性、<code>sprintf</code> / 字符串拼接；支持 PHP / Python / Node.js / Java / Go / Ruby 六种语言。结果可以和官方扫描<strong>一键对比</strong>。</p>
+        <p><strong>解决：</strong>独立深度审计引擎 <code>awdpplus.js</code>（2078 行 / <b>331 条规则</b>）做<strong>跨行污点分析</strong>：先抹掉注释和字符串（避免把文档里的 <code>system()</code> 当漏洞）但保留变量插值；从 source 出发沿赋值链传播到任意深度；追踪函数参数、数组元素、对象属性、<code>sprintf</code> / 字符串拼接；支持 PHP / Python / Node.js / Java / Go / Ruby / ASP / C# 八种语言。结果可以和官方扫描<strong>一键对比</strong>。</p>
         <p>配套 <strong>88 个回归样本</strong>（34 真漏洞 + 27 安全写法 + 15 对抗 + 12 回归），改引擎前后各跑一遍，防止「修一个漏报换来三个误报」。</p>
       </div>
     </details>
@@ -402,7 +402,7 @@ python3 make_patch.py fixed/ --apply-to &lt;靶场根目录&gt;   <span class="c
           <tr><td><b>Flag 自动查找</b> <span class="pill new">NEW</span></td><td><span class="m">/flag</span> 页按钮</td><td>遍历候选路径 + 正则提取 + 一键转监控任务</td><td><span class="m">673 行</span></td></tr>
           <tr><td><b>木马免杀 v1</b> <span class="pill new">NEW</span></td><td><span class="m">/attack/trojan</span></td><td>三档混淆 + 图片马 + <code>.htaccess</code> / <code>.user.ini</code></td><td><span class="m">1140 行</span></td></tr>
           <tr><td><b>木马生成器 v2</b> <span class="pill new">NEW</span></td><td>同上</td><td>加密信道 + 五种图片马 + 连接脚本 + 自检脚本</td><td><span class="m">同上</span></td></tr>
-          <tr><td><b>AWDP 深度审计</b> <span class="pill new">NEW</span></td><td>AWDP 页「🔬 深度审计」</td><td>跨行污点分析，补官方漏报，可与官方对比</td><td><span class="m">1906 行</span></td></tr>
+          <tr><td><b>AWDP 深度审计</b> <span class="pill new">NEW</span></td><td>AWDP 页「🔬 深度审计」</td><td>跨行污点分析 + 331 条规则，补官方漏报，可与官方对比</td><td><span class="m">2078 行</span></td></tr>
           <tr><td><b>AI 修复包</b> <span class="pill new">NEW</span></td><td>上传 ZIP 后自动弹出</td><td>源码 + 问题清单落盘 + 本地链接，直接交给 AI</td><td><span class="m">—</span></td></tr>
           <tr><td><b>ARTEX 集成</b> <span class="pill new">NEW</span></td><td>侧边栏「ARTEX」</td><td>LLM 自治渗透，全屏内嵌，一键同起</td><td><span class="m">350 行</span></td></tr>
           <tr><td><b>Windows 免装 Python</b> <span class="pill new">NEW</span></td><td>—</td><td>包内自带 Python 3.11 embeddable（34 文件）</td><td><span class="m">—</span></td></tr>

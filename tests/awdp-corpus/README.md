@@ -27,6 +27,7 @@ LP_FILE=/path/to/other/awdpplus.js node run.js
 | `corpus/safe/` | 27 个安全写法（参数化查询、argv 数组、白名单查表等） | 零误报 |
 | `corpus/adversarial/` | 15 个专打引擎启发式的对抗样本（净化诱饵、sh -c 包装、pickle、Go 穿越等） | 14/15 命中高危，`x08` 为已知盲区 |
 | `corpus/regress/` | 12 个回归样本（净化规则不能误杀 + 屏蔽层不能抹多） | 全部命中 |
+| `corpus/modern/` | 17 个新型漏洞样本（Fastjson / Jackson / SnakeYAML / XStream / Newtonsoft / JWT none / NoSQL / zip-slip / Spring4Shell / MyBatis 等） | 全部命中 |
 | `corpus/blind/` | 已知盲区，不计分 | 见其 README |
 
 ## 当前基线
@@ -35,6 +36,7 @@ LP_FILE=/path/to/other/awdpplus.js node run.js
 真漏洞     34/34 = 100.0%
 安全代码   27/27 = 100.0%
 回归       12/12 = 100.0%
+新型漏洞   17/17 = 100.0%
 对抗语料   14/15 =  93.3%
 ```
 
