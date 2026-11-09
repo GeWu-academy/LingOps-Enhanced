@@ -7,6 +7,26 @@
 
 ---
 
+## v1.3.3 · 2026-11-09
+
+### 项目更名为 LingOps AWD/AWDP Enhanced
+
+名字里补上 `AWD/AWDP`，让人一眼看出这是打什么场景的工具，不用点进 README 才知道。
+
+| 项 | 旧 | 新 |
+|---|---|---|
+| README 标题 | LingOps Enhanced · 灵控增强版 | **LingOps AWD/AWDP Enhanced · 灵控攻防增强版** |
+| macOS 包 | `LingOps_v0.2_darwin_arm64-enhanced.zip` | `LingOps-AWD-AWDP-Enhanced-v1.3.3-darwin-arm64.zip` |
+| Windows 包 | `LingOps_v0.2_win64_enhanced.zip` | `LingOps-AWD-AWDP-Enhanced-v1.3.3-win64.zip` |
+| 解压后根目录 | `LingOps_v0.2_darwin_arm64/` | `LingOps-AWD-AWDP-Enhanced-v1.3.3-darwin-arm64/` |
+
+> **GitHub 仓库 slug 仍是 `LingOps-Enhanced`** —— 改名需要仓库 admin 权限，当前账号在组织下只有 push，
+> `PATCH /repos` 返回 404。等组织 owner 授权后可改，改名后旧 URL 会自动 301。
+
+包内目录结构与启动方式完全不变，`start.sh` / `start.bat` 都是按脚本自身位置定位，不受根目录名影响。
+
+---
+
 ## v1.3.2 · 2026-11-09
 
 ### Windows 包内置便携版 Python

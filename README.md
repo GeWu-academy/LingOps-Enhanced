@@ -1,10 +1,10 @@
-# LingOps Enhanced · 灵控增强版
+# LingOps AWD/AWDP Enhanced · 灵控攻防增强版
 
 > **一个给 AWD / AWDP 攻防竞赛用的单机作战控制台。**
 > 基于 [灵控 LingOps v0.2.0](https://github.com/zhanglinglingc/lingops) 二次增强，官方二进制零修改。
 
 ![platform](https://img.shields.io/badge/platform-macOS%20arm64%20%7C%20Windows%20x64-blue)
-![version](https://img.shields.io/badge/version-1.3.2-green)
+![version](https://img.shields.io/badge/version-1.3.3-green)
 ![docs](https://img.shields.io/badge/docs-23%20%E7%AB%A0-orange)
 
 ---
@@ -256,10 +256,10 @@ ARTEX 自带 skills（`api-recon` 做 API 侦察、`playwright-cli` 做浏览器
 
 从 [Releases](https://github.com/GeWu-academy/LingOps-Enhanced/releases) 下载对应平台的包：
 
-| 平台 | 文件 | 启动方式 |
-|---|---|---|
-| macOS (Apple Silicon) | `LingOps_v0.2_darwin_arm64-enhanced.zip` | `./start.sh` |
-| Windows x64 | `LingOps_v0.2_win64_enhanced.zip` | 双击 `start.bat` |
+| 平台 | 文件 | 解压后目录 | 启动方式 |
+|---|---|---|---|
+| macOS (Apple Silicon) | `LingOps-AWD-AWDP-Enhanced-v1.3.3-darwin-arm64.zip` | `LingOps-AWD-AWDP-Enhanced-v1.3.3-darwin-arm64/` | `./start.sh` |
+| Windows x64 | `LingOps-AWD-AWDP-Enhanced-v1.3.3-win64.zip` | `LingOps-AWD-AWDP-Enhanced-v1.3.3-win64/` | 双击 `start.bat` |
 
 > Windows 包**内置便携版 Python 3.11**（`python/` 目录，34 个文件），不用装 Python、不用 pip。
 > 想用自己装的：删掉 `python\` 目录，`start.bat` 会自动退回 `python` → `py -3`。
@@ -268,8 +268,8 @@ ARTEX 自带 skills（`api-recon` 做 API 侦察、`playwright-cli` 做浏览器
 
 ```bash
 # macOS
-unzip LingOps_v0.2_darwin_arm64-enhanced.zip
-cd LingOps_v0.2_darwin_arm64
+unzip LingOps-AWD-AWDP-Enhanced-v1.3.3-darwin-arm64.zip
+cd LingOps-AWD-AWDP-Enhanced-v1.3.3-darwin-arm64
 ./start.sh
 ```
 
@@ -368,7 +368,7 @@ panel.html 与主页面同源（都是 127.0.0.1:12800）
 ## 七、目录结构
 
 ```
-LingOps_v0.2_darwin_arm64/
+LingOps-AWD-AWDP-Enhanced-v1.3.3-darwin-arm64/
 ├── lingops-server              # 官方 Go 二进制（未修改，22 MB）
 ├── start.sh / stop.sh          # 一键启动 / 停止（macOS）
 ├── start.bat / stop.bat        # 一键启动 / 停止（Windows）
