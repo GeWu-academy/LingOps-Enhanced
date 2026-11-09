@@ -45,7 +45,34 @@ ET_NEW = (
     'graphql:{label:"GraphQL",color:"lime"}}'
 )
 
-PATCHES = (("语言筛选", UT_OLD, UT_NEW), ("语言标签", KT_OLD, KT_NEW), ("分类标签", ET_OLD, ET_NEW))
+# 规则列表「来源」筛选表（v1.3.6 起 CVE 家族规则 rule_id 前缀 x3-）
+GH_OLD = 'Gh=[{label:"内置",value:"builtin"},{label:"自定义",value:"custom"}]'
+GH_NEW = ('Gh=[{label:"内置",value:"builtin"},{label:"自定义",value:"custom"},'
+          '{label:"CVE 采集",value:"cve-nvd"}]')
+# 早期 v1.3.6 草稿用的是「NVD 采集」，改名后需要能收敛
+GH_DRAFT = ('Gh=[{label:"内置",value:"builtin"},{label:"自定义",value:"custom"},'
+            '{label:"NVD 采集",value:"cve-nvd"}]')
+
+# 官方后端加载 poc 种子时会把 source_type 一律改写成 builtin，
+# 所以「CVE 采集」这一项只能靠 rule_id 前缀识别，不能靠 source_type 字段。
+SRC_OLD = '(!he||(R.source_type||"builtin")===he)'
+SRC_NEW = ('(!he||(he==="cve-nvd"?(R.rule_id||"").indexOf("x3-")===0'
+           ':(he==="builtin"?(R.source_type||"builtin")==="builtin"'
+           '&&(R.rule_id||"").indexOf("x3-")!==0'
+           ':(R.source_type||"builtin")===he)))')
+
+# 知识库 / 规则列表一次拉 500 条，v1.3.6 起条目破千，改大避免前端截断
+KB_PAGE_OLD = '"/api/v1/awdp/knowledge",{params:{page_size:500}}'
+KB_PAGE_NEW = '"/api/v1/awdp/knowledge",{params:{page_size:3000}}'
+RULE_PAGE_OLD = '"/api/v1/awdp/scan-rules",{params:{page_size:500}}'
+RULE_PAGE_NEW = '"/api/v1/awdp/scan-rules",{params:{page_size:3000}}'
+
+PATCHES = (("语言筛选", UT_OLD, UT_NEW), ("语言标签", KT_OLD, KT_NEW),
+           ("分类标签", ET_OLD, ET_NEW), ("来源筛选改名", GH_DRAFT, GH_NEW),
+           ("来源筛选", GH_OLD, GH_NEW),
+           ("来源筛选生效", SRC_OLD, SRC_NEW),
+           ("知识库分页", KB_PAGE_OLD, KB_PAGE_NEW),
+           ("规则分页", RULE_PAGE_OLD, RULE_PAGE_NEW))
 
 
 def main():

@@ -221,6 +221,12 @@ def export(con, out=POC):
     rcols = ["id", "created_at", "updated_at"] + RULE_COLS
     rules = [dict(zip(rcols, r)) for r in con.execute(
         "select id,created_at,updated_at,%s from vulnerability_scan_rules order by id" % Q(RULE_COLS))]
+    # Go 服务端按 bool 反序列化这两个字段，导出时必须写 true/false，
+    # 写成 1/0 会让整个 fix-library 加载失败（服务端只打一行 warning，库是空的）。
+    for it in knowledge + rules:
+        for c in ("is_active", "is_builtin"):
+            if c in it:
+                it[c] = bool(it[c])
     with open(os.path.join(out, "fix-library.json"), "w", encoding="utf-8") as f:
         json.dump({"version": "1.1.0", "exported_at": stamp, "knowledge": knowledge,
                    "rules": rules}, f, ensure_ascii=False, indent=1)

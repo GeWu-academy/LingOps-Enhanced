@@ -12,6 +12,9 @@ artex/data/
 artex/jwt.key
 artex/config.json
 
+# ── CVE 采集缓存（NVD 原始响应，几十 MB，不入库）────────────────
+.cache/
+
 # ── Python ───────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]

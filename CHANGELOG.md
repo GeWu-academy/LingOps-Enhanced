@@ -7,6 +7,71 @@
 
 ---
 
+## v1.3.6 · 2026-11-10
+
+### 收录 2020–2026 年真实 CVE
+
+v1.3.5 的漏洞知识库有 147 条，但绝大多数是按漏洞类型写的通用条目，缺少具体 CVE。这版直接对接 NVD API 2.0 采集 2020–2026 年的真实 CVE，并配了一批 CVE 家族扫描规则。
+
+| 内容库 | v1.3.5 | v1.3.6 | 变化 |
+|---|---|---|---|
+| 漏洞知识库 | 147 | **1047** | +900（全部来自 NVD） |
+| 扫描规则 | 634 | **759** | +125 |
+
+#### 采集方式（可复现）
+
+`ext/tools/cve_harvest.py` 是完整采集管道，不是一次性脚本：
+
+```bash
+python3 ext/tools/cve_harvest.py --year-from 2020 --year-to 2026 --cap 900
+```
+
+- 数据源：`https://services.nvd.nist.gov/rest/json/cves/2.0`，97 个关键词（PHP / Java / Node / Python / Go / 中间件 / 安全设备 / 国产 OA）
+- **只收录 NVD 真实返回的 CVE 号**，编号、CVSS、CWE、受影响版本、摘要全部来自 NVD 原始响应，不做任何推测补全
+- 每条带 NVD 详情页链接 + 厂商公告链接
+- 本地缓存 `.cache/nvd/`，`--resume` 可离线重跑
+- 限速 6.2s/请求（无 API key 约 5 次/30 秒）
+
+#### 条目质量
+
+- **年份**：2020 / 2021 / 2022 / 2023 / 2024 / 2025 / 2026 全覆盖
+- **类型**：21 类，XSS / SSRF / XXE / 文件上传 / SSTI / 反序列化 / 注入 / 越权 / 认证绕过等都有，单类型占比上限 18%（避免信息泄露类淹没整个库）
+- **CWE 映射**：65 条 CWE → 中文类型映射，纯 DoS 类（CWE-400/674/770 等）直接丢弃（AWD 场景无利用价值）
+- **严重度阈值**：通用漏洞 CVSS ≥ 7.0；XSS / SSRF / XXE / 上传 / SSTI / 反序列化等 AWD 高频类型放宽到 6.0
+
+#### 新增 125 条 CVE 家族扫描规则
+
+`ext/tools/awdp-lib-gen/gen5_cve_rules.py` 按语言 × CVE 家族生成，全部通过 Go RE2 编译校验（官方扫描器用 Go regexp，不支持 lookahead，历史上有多条规则因此静默失效）：
+
+- PHP：CVE-2024-4577 / 8926 CGI 参数注入、CVE-2019-11043 FPM、ThinkPHP 多版本 RCE、Laravel APP_KEY 反序列化、phar
+- Java：Log4Shell、Spring4Shell、Spring Cloud Gateway / Function、Struts2、Shiro、Fastjson / Jackson、Tomcat AJP、WebLogic T3
+- Node：原型污染 → RCE、`node-serialize`、JWT 缺陷、EJS / Handlebars SSTI
+- Python / Go / Ruby / C#：`yaml.load`、`pickle`、`torch.load`、GORM 拼接、`Marshal.load`、`BinaryFormatter`
+- 中间件与国产 OA：Nacos、Confluence OGNL、Jenkins、GitLab、通达 / 致远 / 泛微 / 用友
+
+#### 前端
+
+- 规则列表「来源」筛选新增 **CVE 采集** 项，可把这 125 条 CVE 家族规则和官方内置规则分开看
+- 知识库 / 规则列表拉取上限从 500 提到 3000，否则条目破千后前端会截断
+
+> 官方后端在加载 `data/poc/*.json` 时会把 `source_type` 一律改写成 `builtin`，所以「CVE 采集」是按 `rule_id` 前缀 `x3-` 识别的，不依赖 `source_type` 字段。
+
+#### 修了一个分发层面的 bug
+
+官方后端按 **bool** 反序列化 `is_active` / `is_builtin`，而数据库里存的是 `1` / `0`。`awdp_lib.py export` 之前直接把 DB 里的整数写进种子 JSON，导致**全新安装时整个 fix-library 加载失败**：
+
+```
+Warning: Failed to load fix library: json: cannot unmarshal number into Go struct field .knowledge.is_active of type bool
+```
+
+服务端只打一行 warning 就继续跑，表现是知识库和规则都是空的。现在导出时统一转成 `true` / `false`，已在纯净目录实测：新装即可看到 1047 条知识 / 759 条规则。
+
+#### 说明
+
+CVE 条目的 `exploit_tip` / `fix_*` 是按 **CWE 类型的通用打法** 生成的，不是针对该 CVE 验证过的利用步骤；具体利用请以 NVD 与厂商公告为准。CVE 条目本身不带 `match_rules`，不产生扫描规则（扫描规则由上面那 125 条单独提供）。
+
+---
+
 ## v1.3.5 · 2026-11-10
 
 ### AWDP 五个内容库全面扩容

@@ -237,7 +237,7 @@ ARTEX 自带 skills（`api-recon` 做 API 侦察、`playwright-cli` 做浏览器
 | 运维 → 数据库管理 | `/ops/database` | MySQL 资产、终端、备份恢复 |
 | Flag | `/flag` | 定时批量读取 Flag、成绩统计 |
 | AWDP → Break | `/awdp/break` | 源码漏洞发现、Payload（110 条）/ Exploit（53 条）/ WAF 绕过（73 条） |
-| AWDP → Fix | `/awdp/fix` | 漏洞扫描、知识库（147 条）、规则（634 条）、补丁包生成 |
+| AWDP → Fix | `/awdp/fix` | 漏洞扫描、知识库（1047 条）、规则（759 条）、补丁包生成 |
 | 设置 | `/settings` | 账号信息与改密 |
 
 ### 本仓库新增
@@ -480,6 +480,38 @@ v1.3.1 靠它抓出 5 个这类 bug（Python `//` 整除被当注释、JS 正则
 node --check frontend/dist/assets_v2/lp-ext/boot.js
 python3 -m py_compile ext/lp_scan_server.py
 bash -n start.sh
+```
+
+### 9.4 内容库维护
+
+AWDP 五块内容库（Payload / 漏洞利用 / WAF 绕过 / 知识库 / 规则）存在 `data/lingops.db` 里，但**这个 DB 不随包发布**，分发靠 `data/poc/break-library.json` 与 `data/poc/fix-library.json`。所以改内容库必须走 `awdp_lib.py`：
+
+```bash
+# 1) 写 JSON 种子（ext/tools/awdp-lib-extra/*.json），然后
+python3 ext/tools/awdp_lib.py sync ext/tools/awdp-lib-extra/11-cve-knowledge.json
+#    → upsert 进 DB，并重新导出 data/poc/*.json
+python3 ext/tools/awdp_lib.py stats      # 看五块各多少条
+```
+
+⚠️ 两个坑：
+
+- `is_active` / `is_builtin` 官方后端按 **bool** 反序列化，导出时必须是 `true`/`false`。写成 `1`/`0` 会让整个 fix-library 加载失败，服务端只打一行 warning，表现是知识库全空。
+- 官方后端加载种子时会把 `source_type` 一律改写成 `builtin`，靠这个字段做前端筛选是不生效的。
+
+CVE 知识库是自动采集的，不是手写的：
+
+```bash
+python3 ext/tools/cve_harvest.py --year-from 2020 --year-to 2026 --cap 900
+python3 ext/tools/cve_harvest.py --resume          # 走本地缓存，不联网
+```
+
+数据源是 NVD API 2.0，只收录 NVD 真实返回的 CVE，不做任何推测补全。原始响应缓存在 `.cache/nvd/`（不随包发布）。
+
+官方前端 bundle 是构建产物、仓库不跟踪，新增的 category / 语言 / 来源标签靠补丁脚本注入：
+
+```bash
+python3 ext/tools/patch_labels.py --check   # 只检查
+python3 ext/tools/patch_labels.py           # 幂等补齐
 ```
 
 ---
