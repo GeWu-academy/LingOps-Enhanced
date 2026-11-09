@@ -1,0 +1,24 @@
+# ── 运行时数据，绝不入库 ──────────────────────────────────────────
+# data/lingops.db 里有真实资产 IP、WebShell 凭据、admin 密码哈希
+data/*
+!data/.gitkeep
+
+# ARTEX 运行时状态：MITM CA 私钥、流量抓包、JWT 密钥、数据库口令
+artex/data/
+artex/jwt.key
+artex/config.json
+
+# ── Python ───────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# ── 编辑器 / 系统 ────────────────────────────────────────────────
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# ── 构建产物 ─────────────────────────────────────────────────────
+*.zip
+dist/

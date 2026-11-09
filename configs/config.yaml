@@ -1,0 +1,14 @@
+server:
+  port: 12800
+  read_timeout: 30
+  write_timeout: 60
+database:
+  type: "sqlite"
+  name: "data/lingops.db"
+auth:
+  jwt:
+    secret: "change-me"
+    expire_hours: 24
+    refresh_expire_hours: 168
+    issuer: "lingops"
+serve_frontend: true
