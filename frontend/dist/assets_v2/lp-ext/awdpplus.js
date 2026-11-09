@@ -15,7 +15,7 @@
   if (window.__lpAwdpPlus) return;
   window.__lpAwdpPlus = true;
 
-  var VERSION = '1.3.4';
+  var VERSION = '1.3.5';
 
   /* =====================================================================
    * 1. 语言识别

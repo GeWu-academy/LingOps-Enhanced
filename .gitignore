@@ -2,6 +2,10 @@
 # data/lingops.db 里有真实资产 IP、WebShell 凭据、admin 密码哈希
 data/*
 !data/.gitkeep
+# 内容库种子是随包发布的资产，必须入库（lingops.db 仍然禁止）
+!data/poc/
+data/poc/*
+!data/poc/*.json
 
 # ARTEX 运行时状态：MITM CA 私钥、流量抓包、JWT 密钥、数据库口令
 artex/data/

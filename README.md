@@ -236,8 +236,8 @@ ARTEX 自带 skills（`api-recon` 做 API 侦察、`playwright-cli` 做浏览器
 | 运维 → 基线管理 | `/ops/baseline` | 备份、巡检、权限、后门清理、端口封禁 |
 | 运维 → 数据库管理 | `/ops/database` | MySQL 资产、终端、备份恢复 |
 | Flag | `/flag` | 定时批量读取 Flag、成绩统计 |
-| AWDP → Break | `/awdp/break` | 源码漏洞发现、Payload / Exploit / WAF 绕过知识库 |
-| AWDP → Fix | `/awdp/fix` | 漏洞扫描、知识库（81 条）、规则（185 条）、补丁包生成 |
+| AWDP → Break | `/awdp/break` | 源码漏洞发现、Payload（110 条）/ Exploit（53 条）/ WAF 绕过（73 条） |
+| AWDP → Fix | `/awdp/fix` | 漏洞扫描、知识库（147 条）、规则（634 条）、补丁包生成 |
 | 设置 | `/settings` | 账号信息与改密 |
 
 ### 本仓库新增
