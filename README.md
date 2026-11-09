@@ -7,6 +7,10 @@
 ![version](https://img.shields.io/badge/version-1.3.3-green)
 ![docs](https://img.shields.io/badge/docs-23%20%E7%AB%A0-orange)
 
+> 📄 网页版介绍页：源码在 [`site/index.html`](site/index.html)（单文件、零外部依赖）。
+> 组织 owner 在 **Settings → Pages** 把 Source 设为 `Deploy from a branch` → `main` → `/site` 后，
+> 即可通过 `https://gewu-academy.github.io/LingOps-Enhanced/` 访问。
+
 ---
 
 ## 目录

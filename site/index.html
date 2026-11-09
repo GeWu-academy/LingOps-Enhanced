@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LingOps AWD/AWDP Enhanced · 灵控攻防增强版</title>
+<meta name="description" content="给 AWD / AWDP 攻防竞赛用的单机作战控制台。基于灵控 LingOps v0.2.0 二次增强，官方二进制零修改。">
+<meta property="og:title" content="LingOps AWD/AWDP Enhanced">
+<meta property="og:description" content="AWD / AWDP 攻防竞赛单机作战控制台：端口与上传点扫描、Flag 自动查找、木马免杀、深度污点审计、AI 修复包。">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+<style>
+:root{
+  --bg:#0a0e14; --bg2:#0f1520; --panel:#131b28; --panel2:#18222f;
+  --line:#243044; --line2:#2f3f57;
+  --fg:#dde5f0; --fg2:#93a4bd; --fg3:#61748f;
+  --acc:#38e0a0; --acc2:#25c98c; --accbg:rgba(56,224,160,.10);
+  --red:#ff5d5d; --orange:#ffa657; --yellow:#e3b341; --blue:#5aa8ff; --purple:#b48bff;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --rad:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-padding-top:78px}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);line-height:1.75;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(900px 500px at 12% -8%,rgba(56,224,160,.13),transparent 60%),
+    radial-gradient(800px 460px at 92% 4%,rgba(90,168,255,.10),transparent 62%),
+    linear-gradient(rgba(255,255,255,.017) 1px,transparent 1px) 0 0/100% 34px;
+  mask-image:linear-gradient(#000 40%,transparent 92%)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 22px;position:relative;z-index:1}
+
+/* ---------- nav ---------- */
+nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);
+  background:rgba(10,14,20,.82);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;gap:20px;height:62px;max-width:1080px}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:.2px;font-size:15px;white-space:nowrap}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--acc);box-shadow:0 0 12px var(--acc)}
+.brand b{color:var(--acc);font-weight:700}
+nav ul{display:flex;gap:4px;list-style:none;margin-left:auto;flex-wrap:wrap}
+nav a{color:var(--fg2);text-decoration:none;font-size:13.5px;padding:7px 11px;border-radius:8px;transition:.16s}
+nav a:hover{color:var(--fg);background:var(--panel2)}
+.ghb{display:inline-flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line2);
+  color:var(--fg)!important;padding:7px 14px!important;font-weight:600}
+.ghb:hover{border-color:var(--acc);color:var(--acc)!important}
+
+/* ---------- hero ---------- */
+header{padding:76px 0 60px;position:relative}
+.kicker{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--acc);background:var(--accbg);border:1px solid rgba(56,224,160,.28);
+  padding:5px 13px;border-radius:99px;font-weight:600;margin-bottom:22px}
+h1{font-size:clamp(32px,5.2vw,54px);line-height:1.18;letter-spacing:-.02em;font-weight:800}
+h1 .grad{background:linear-gradient(96deg,var(--acc) 8%,var(--blue) 58%,var(--purple) 96%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.lede{font-size:17px;color:var(--fg2);max-width:730px;margin-top:20px}
+.lede b{color:var(--fg)}
+.cta{display:flex;gap:12px;margin-top:32px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:12px 22px;border-radius:11px;
+  text-decoration:none;font-weight:650;font-size:14.5px;transition:.18s;border:1px solid transparent}
+.btn-p{background:linear-gradient(180deg,var(--acc),var(--acc2));color:#04231a;
+  box-shadow:0 6px 24px rgba(56,224,160,.24)}
+.btn-p:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(56,224,160,.34)}
+.btn-s{background:var(--panel);border-color:var(--line2);color:var(--fg)}
+.btn-s:hover{border-color:var(--acc);color:var(--acc);transform:translateY(-2px)}
+.meta{display:flex;gap:26px;margin-top:38px;flex-wrap:wrap;font-size:13px;color:var(--fg3)}
+.meta div{display:flex;align-items:center;gap:7px}
+.meta b{color:var(--fg);font-variant-numeric:tabular-nums}
+
+/* ---------- section ---------- */
+section{padding:62px 0;position:relative}
+.sec-h{display:flex;align-items:baseline;gap:14px;margin-bottom:10px}
+.sec-h span.num{font-family:var(--mono);font-size:13px;color:var(--acc);opacity:.85}
+h2{font-size:clamp(23px,3.2vw,31px);letter-spacing:-.01em;font-weight:750}
+.sec-sub{color:var(--fg2);font-size:15px;max-width:760px;margin-bottom:34px}
+
+/* ---------- cards ---------- */
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.card{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);
+  border-radius:var(--rad);padding:22px;transition:.2s;position:relative;overflow:hidden}
+.card:hover{border-color:var(--line2);transform:translateY(-3px)}
+.card::after{content:"";position:absolute;inset:0 0 auto 0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--acc),transparent);opacity:0;transition:.25s}
+.card:hover::after{opacity:.9}
+.card h3{font-size:15.5px;margin-bottom:9px;display:flex;align-items:center;gap:9px;font-weight:680}
+.card h3 .ic{font-size:17px;line-height:1}
+.card p{font-size:13.8px;color:var(--fg2)}
+.card p code,.inline{font-family:var(--mono);font-size:12.6px;background:var(--panel2);
+  border:1px solid var(--line);padding:1.5px 6px;border-radius:5px;color:var(--acc)}
+
+/* ---------- flow ---------- */
+.flow{display:flex;flex-direction:column;gap:0;margin:8px 0 4px}
+.step{display:flex;gap:18px;padding:16px 0}
+.step:not(:last-child){border-bottom:1px dashed var(--line)}
+.step .n{flex:0 0 34px;height:34px;border-radius:9px;background:var(--panel2);border:1px solid var(--line2);
+  display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;
+  color:var(--acc);font-weight:700}
+.step .t{font-weight:650;font-size:14.5px;margin-bottom:3px}
+.step .d{font-size:13.5px;color:var(--fg2)}
+
+/* ---------- problem ---------- */
+.prob{background:var(--panel);border:1px solid var(--line);border-radius:var(--rad);
+  padding:0;overflow:hidden;margin-bottom:14px}
+.prob summary{cursor:pointer;padding:17px 22px;display:flex;align-items:center;gap:12px;
+  font-weight:650;font-size:14.8px;list-style:none;transition:.16s}
+.prob summary::-webkit-details-marker{display:none}
+.prob summary:hover{background:var(--panel2)}
+.prob summary .tag{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:5px;
+  background:var(--accbg);color:var(--acc);border:1px solid rgba(56,224,160,.26);flex:0 0 auto}
+.prob summary .arw{margin-left:auto;color:var(--fg3);transition:.22s;font-size:12px}
+.prob[open] summary .arw{transform:rotate(90deg)}
+.prob .body{padding:0 22px 20px;font-size:13.9px;color:var(--fg2)}
+.prob .body p{margin-bottom:11px}
+.prob .body p:last-child{margin-bottom:0}
+.prob .body strong{color:var(--fg)}
+.prob .body ul{margin:8px 0 11px 20px;font-size:13.6px}
+.prob .body li{margin-bottom:5px}
+
+/* ---------- code ---------- */
+pre{background:#080c12;border:1px solid var(--line);border-radius:10px;padding:15px 17px;
+  overflow-x:auto;font-family:var(--mono);font-size:12.8px;line-height:1.7;margin:12px 0;position:relative}
+pre code{color:#c6d4e6}
+pre .c{color:#5a6b82;font-style:italic}
+pre .k{color:#ff7b9c}
+pre .s{color:#9ae08a}
+pre .f{color:#7fc4ff}
+pre .v{color:#ffc98a}
+pre .bad{color:#ff8a8a}
+pre .good{color:#6fe3ae}
+.copy{position:absolute;top:8px;right:8px;background:var(--panel2);border:1px solid var(--line2);
+  color:var(--fg2);font-size:11px;padding:3px 9px;border-radius:6px;cursor:pointer;
+  font-family:var(--sans);opacity:0;transition:.16s}
+pre:hover .copy{opacity:1}
+.copy:hover{color:var(--acc);border-color:var(--acc)}
+
+/* ---------- table ---------- */
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:var(--rad);background:var(--panel)}
+table{width:100%;border-collapse:collapse;font-size:13.6px;min-width:520px}
+th{text-align:left;padding:12px 18px;background:var(--panel2);color:var(--fg2);
+  font-weight:650;font-size:12.5px;letter-spacing:.03em;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:11px 18px;border-bottom:1px solid rgba(36,48,68,.6);color:var(--fg2);vertical-align:top}
+tr:last-child td{border-bottom:0}
+tr:hover td{background:rgba(24,34,47,.55)}
+td b{color:var(--fg);font-weight:600}
+td .m{font-family:var(--mono);font-size:12.4px;color:var(--acc)}
+.pill{display:inline-block;font-size:11.5px;font-family:var(--mono);padding:1px 7px;border-radius:5px;
+  border:1px solid var(--line2);background:var(--panel2);color:var(--fg2);white-space:nowrap}
+.pill.new{color:var(--acc);border-color:rgba(56,224,160,.3);background:var(--accbg)}
+
+/* ---------- arch ---------- */
+.arch{background:#080c12;border:1px solid var(--line);border-radius:var(--rad);padding:22px;
+  font-family:var(--mono);font-size:12.4px;line-height:1.95;color:var(--fg2);overflow-x:auto;white-space:pre}
+.arch b{color:var(--acc)}
+.arch i{color:var(--fg3);font-style:normal}
+.arch u{color:var(--blue);text-decoration:none}
+
+/* ---------- footer ---------- */
+footer{border-top:1px solid var(--line);margin-top:40px;padding:40px 0 60px;color:var(--fg3);font-size:13px}
+footer .row{display:flex;justify-content:space-between;gap:22px;flex-wrap:wrap;align-items:flex-start}
+footer a{color:var(--fg2);text-decoration:none}
+footer a:hover{color:var(--acc)}
+.warn{background:rgba(255,93,93,.07);border:1px solid rgba(255,93,93,.24);border-radius:10px;
+  padding:14px 18px;font-size:13.4px;color:#ffb3b3;margin-top:22px}
+.warn b{color:#ff8080}
+.note{background:var(--accbg);border:1px solid rgba(56,224,160,.24);border-radius:10px;
+  padding:14px 18px;font-size:13.4px;color:var(--fg2);margin-top:16px}
+.note b{color:var(--acc)}
+@media(max-width:640px){
+  nav ul{display:none}
+  header{padding:52px 0 40px}
+  section{padding:48px 0}
+  .meta{gap:16px}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="brand"><span class="dot"></span>LingOps <b>AWD/AWDP</b> Enhanced</div>
+    <ul>
+      <li><a href="#what">这是什么</a></li>
+      <li><a href="#loop">AWD 在打什么</a></li>
+      <li><a href="#solve">解决什么</a></li>
+      <li><a href="#features">功能</a></li>
+      <li><a href="#start">快速开始</a></li>
+      <li><a href="#arch">架构</a></li>
+      <li><a class="ghb" href="https://github.com/GeWu-academy/LingOps-Enhanced" target="_blank" rel="noopener">GitHub ↗</a></li>
+    </ul>
+  </div>
+</nav>
+
+<header>
+  <div class="wrap">
+    <div class="kicker">AWD / AWDP · 攻防竞赛工具</div>
+    <h1>把打 AWD 时散在<br><span class="grad">十几个终端里的操作</span><br>收进一个控制台</h1>
+    <p class="lede">
+      基于 <b>灵控 LingOps v0.2.0</b> 二次增强。官方二进制<b>零修改</b>，全部能力通过运行时注入挂上去。
+      补上了官方缺的端口与上传点扫描、Flag 自动查找、深度污点审计、AI 修复包，以及木马免杀 v2。
+    </p>
+    <div class="cta">
+      <a class="btn btn-p" href="https://github.com/GeWu-academy/LingOps-Enhanced/releases/latest">下载最新版 →</a>
+      <a class="btn btn-s" href="https://github.com/GeWu-academy/LingOps-Enhanced">查看源码</a>
+      <a class="btn btn-s" href="https://github.com/GeWu-academy/LingOps-Enhanced/tree/main/docs">23 章教程</a>
+    </div>
+    <div class="meta">
+      <div><b>1.3.3</b> 版本</div>
+      <div><b>macOS arm64</b> / <b>Windows x64</b></div>
+      <div><b>2844</b> 行扫描后端</div>
+      <div><b>88</b> 个审计回归样本</div>
+      <div><b>0</b> 个 pip 依赖</div>
+    </div>
+  </div>
+</header>
+
+<section id="what">
+  <div class="wrap">
+    <div class="sec-h"><span class="num">01</span><h2>这是什么</h2></div>
+    <p class="sec-sub">
+      AWD（Attack With Defense）是 CTF 的一种赛制：每队分到一批跑着有漏洞的 Web 应用的服务器，
+      同时要攻别人、守自己、抢 flag。真正的瓶颈从来不是「会不会打」，而是<b>手忙不过来</b>。
+    </p>
+    <div class="grid g3">
+      <div class="card">
+        <h3><span class="ic">🖥️</span>本机运行</h3>
+        <p>一个跑在 127.0.0.1 的 Go 程序 + 网页控制台，所有靶机、Shell、任务、知识库集中管理，不上云。</p>
+      </div>
+      <div class="card">
+        <h3><span class="ic">🧩</span>零改官方</h3>
+        <p>官方只发编译好的二进制。增强全部走 <code>index.html</code> 注入 + <code>assets_v2/</code> 静态资源，升级不冲突。</p>
+      </div>
+      <div class="card">
+        <h3><span class="ic">🔌</span>零依赖</h3>
+        <p>扫描后端 2844 行<b>纯 Python 标准库</b>。Windows 包还内置了便携版 Python 3.11，解压即用。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="loop">
+  <div class="wrap">
+    <div class="sec-h"><span class="num">02</span><h2>一轮 AWD 到底在打什么</h2></div>
+    <p class="sec-sub">5~15 分钟一轮，全程重复 10~30 轮。每一步都有具体的手工成本。</p>
+    <div class="flow">
+      <div class="step"><div class="n">01</div><div><div class="t">侦察</div><div class="d">哪些靶机活着？开了什么端口？哪个有上传点？—— 官方只做 ICMP 存活探测，靶机丢 ICMP 就全变「离线」。</div></div></div>
+      <div class="step"><div class="n">02</div><div><div class="t">打点</div><div class="d">上传 / 写入 WebShell，拿到命令执行。手动 <code>curl</code> 构造请求太慢。</div></div></div>
+      <div class="step"><div class="n">03</div><div><div class="t">提权 / 横向</div><div class="d">从 Web 目录走到系统层，找 flag 文件。</div></div></div>
+      <div class="step"><div class="n">04</div><div><div class="t">交 flag</div><div class="d">flag 可能在 <code>/flag</code>、<code>/root/flag</code>、<code>/var/www/flag.php</code>…… 官方只能手填一个固定路径，猜错就一直失败。</div></div></div>
+      <div class="step"><div class="n">05</div><div><div class="t">防守</div><div class="d">自己的机器被打了：找后门 → 清掉 → 补漏洞。对手可能已经放了不死马、内存马。</div></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="solve">
+  <div class="wrap">
+    <div class="sec-h"><span class="num">03</span><h2>它解决哪些具体问题</h2></div>
+    <p class="sec-sub">每条都是「官方缺什么 → 我补了什么」，点开看细节。</p>
+
+    <details class="prob" open>
+      <summary><span class="tag">侦察</span>靶机明明活着，工具说离线<span class="arw">▶</span></summary>
+      <div class="body">
+        <p><strong>原因：</strong>官方侦察只发 ICMP（ping）。很多比赛环境为了防扫描把 ICMP 全 drop，靶机就全部显示「离线」。</p>
+        <p><strong>解决：</strong>端口扫描模块用 <strong>ICMP + TCP 双栈探活</strong> —— ping 不通就试 22 / 80 / 443 / 445 / 3389 等常见端口，只要有一个 TCP 握手成功就判定存活。实测能救回官方漏掉的大部分靶机。</p>
+      </div>
+    </details>
+
+    <details class="prob">
+      <summary><span class="tag">侦察</span>不知道哪个端口有上传点<span class="arw">▶</span></summary>
+      <div class="body">
+        <p>官方没有端口扫描，更没有上传点探测。补的是一条完整链路：</p>
+        <pre><code>存活探测 → 端口扫描（1-65535 或常用集） → 服务指纹（banner / HTTP 头）
+        → Web 探测（标题 / 框架 / 路径） → 上传点探测</code><button class="copy">复制</button></pre>
+        <p>上传点探测会主动请求 40+ 条常见路径（<code>/upload.php</code>、<code>/api/upload</code>、<code>/admin/upload</code> 等），检查响应里有没有文件上传表单或 JSON 上传接口，命中的直接列出来并给出 <code>curl</code> 测试命令。</p>
+      </div>
+    </details>
+
+    <details class="prob">
+      <summary><span class="tag">Flag</span>Flag 到底在哪<span class="arw">▶</span></summary>
+      <div class="body">
+        <p>官方 <code>/flag</code> 页只有一个表单，路径必须手填，默认 <code>/flag</code>。</p>
+        <p>Flag 查找扩展会在<strong>你已经拿到的 WebShell</strong> 上批量遍历候选路径：</p>
+        <ul>
+          <li>常见绝对路径：<code>/flag</code>、<code>/flag.txt</code>、<code>/root/flag</code>、<code>/home/*/flag</code>、<code>/tmp/flag</code>、<code>/var/www/flag</code> ……</li>
+          <li>站点目录递归：搜文件名含 <code>flag</code> 的文件（支持 <code>flag.php</code>、<code>x_flag.txt</code>、<code>flag.jpg</code>）</li>
+          <li>Windows 路径：<code>C:\flag.txt</code>、<code>D:\flag</code>、<code>C:\inetpub\wwwroot\flag.txt</code></li>
+        </ul>
+        <p>搜到后用正则提取 flag 值（<code>flag{...}</code>、<code>DASCTF{...}</code>、32 位 hex 等），<strong>一键转成官方监控任务</strong>，之后官方那套定时读取就接管了。</p>
+      </div>
+    </details>
+
+    <details class="prob" open>
+      <summary><span class="tag">AWDP</span>官方审计扫不出漏洞（最严重）<span class="arw">▶</span></summary>
+      <div class="body">
+        <p>官方 AWDP Break/Fix 的引擎是「污点门控 + 正则」两级：<strong>只有含 source 的行、和引用污染变量的行</strong>才进第二级跑正则。设计上压噪声，但有三个结构性漏报。</p>
+
+        <p><strong>漏报 1：sink 参数里没有污点变量 → 整行不扫</strong></p>
+        <pre><code><span class="k">system</span>(<span class="s">"ls -la"</span>);          <span class="c">// 官方不报，即使这是明摆着的命令执行</span>
+<span class="f">myCustomFunc2</span>(<span class="s">"literal"</span>);  <span class="c">// 同上</span></code><button class="copy">复制</button></pre>
+
+        <p><strong>漏报 2：不传播二级变量</strong></p>
+        <pre><code><span class="v">$f</span> = <span class="v">$_GET</span>[<span class="s">'f'</span>];      <span class="c">// 一级：被污染</span>
+<span class="v">$g</span> = <span class="v">$f</span>;              <span class="c">// 二级：官方引擎不传播</span>
+<span class="k">exec</span>(<span class="s">"cmd "</span> . <span class="v">$g</span>);    <span class="c">// 漏报</span></code><button class="copy">复制</button></pre>
+
+        <p><strong>漏报 3：Go 语义引擎只覆盖文件操作。</strong></p>
+
+        <p><strong>解决：</strong>独立深度审计引擎 <code>awdpplus.js</code>（1906 行）做<strong>跨行污点分析</strong>：先抹掉注释和字符串（避免把文档里的 <code>system()</code> 当漏洞）但保留变量插值；从 source 出发沿赋值链传播到任意深度；追踪函数参数、数组元素、对象属性、<code>sprintf</code> / 字符串拼接；支持 PHP / Python / Node.js / Java / Go / Ruby 六种语言。结果可以和官方扫描<strong>一键对比</strong>。</p>
+        <p>配套 <strong>88 个回归样本</strong>（34 真漏洞 + 27 安全写法 + 15 对抗 + 12 回归），改引擎前后各跑一遍，防止「修一个漏报换来三个误报」。</p>
+      </div>
+    </details>
+
+    <details class="prob">
+      <summary><span class="tag">AWDP</span>修漏洞改到手抽筋<span class="arw">▶</span></summary>
+      <div class="body">
+        <p>官方扫描只给你一张问题列表，<strong>不保留源码</strong>。想交给 AI 修，得手动复制几十个文件。上传一次 ZIP，立刻得到：</p>
+        <pre><code>~/LingOps-AWDP/&lt;id&gt;/
+├── src/                  <span class="c"># 解压的源码，保留原目录结构</span>
+├── index.html            <span class="c"># 目录页：问题清单 + 文件树</span>
+├── bundle.md             <span class="c"># 全文包：元信息 + 问题清单 + 全部源码</span>
+├── attack-plan.md        <span class="c"># ⚔️ 攻击路线：入口 / payload / 预期回显 / flag 位置</span>
+├── fix-plan.md           <span class="c"># 🛡️ 修复清单：根因 / 最小改动 / 验证方法 + 止血顺序</span>
+├── local-ai.md           <span class="c"># 🤖 给本地 AI 的任务书（整篇复制即可）</span>
+├── check_fixed.py        <span class="c"># ✅ 验收门</span>
+└── make_patch.py         <span class="c"># 📦 fixed/ → git apply 补丁</span></code><button class="copy">复制</button></pre>
+        <p>把这个目录丢给 Cursor / Claude / Copilot，它按 <code>local-ai.md</code> 把改好的完整文件写进 <code>fixed/</code>，然后：</p>
+        <pre><code>python3 check_fixed.py -v            <span class="c"># 全绿才能往下走</span>
+python3 make_patch.py fixed/         <span class="c"># 生成 fixes.patch</span>
+python3 make_patch.py fixed/ --apply-to &lt;靶场根目录&gt;   <span class="c"># 直接打上去</span></code><button class="copy">复制</button></pre>
+        <p><code>check_fixed.py</code> 拦这些必错项：<code>fixed/</code> 为空 / 路径不存在 / 语法错误 / 换行风格被改 / 单文件改动超 50% / 命中已知坏写法 / 高危问题有文件没覆盖。</p>
+      </div>
+    </details>
+
+    <details class="prob">
+      <summary><span class="tag">免杀</span>木马一秒被查杀<span class="arw">▶</span></summary>
+      <div class="body">
+        <p>官方木马页只有 12 个固定模板，明文 <code>eval($_POST['pass'])</code>，D盾、河马、安全狗一眼命中。补了两代生成器。</p>
+        <p><strong>v1（静态免杀）</strong>：三档混淆 + 图片马（真实图片头拼接，<code>getimagesize()</code> 判定为合法图片）+ 一键生成 <code>.htaccess</code> / <code>.user.ini</code> 让 <code>.jpg</code> 也能被 PHP 解析。</p>
+        <p><strong>v2（流量免杀）</strong>：</p>
+        <div class="tw" style="margin-top:10px">
+          <table>
+            <thead><tr><th>能力</th><th>v1</th><th>v2</th></tr></thead>
+            <tbody>
+              <tr><td>载荷加密</td><td>无</td><td><b>XOR+Base64 / AES-128-CBC / 纯 Base64 / 明文</b> 四种</td></tr>
+              <tr><td>通信协议</td><td><span class="m">pass=base64(php)</span></td><td>加密信道 + <b>md5 标记包裹</b>响应</td></tr>
+              <tr><td>图片马</td><td>拼接图片头</td><td>同左，图标由 canvas 实时绘制（盾牌），非占位点</td></tr>
+              <tr><td>图标格式</td><td>PNG / ICO</td><td><b>GIF / PNG / JPG / BMP / ICO(256)</b> 五种，全部真实可解码</td></tr>
+              <tr><td>功能模式</td><td>eval / cmd / 文件读写</td><td>增加 <b>file（完整文件管理器）/ db（mysqli）/ info（信息收集）</b></td></tr>
+              <tr><td>连接工具</td><td>手动构造</td><td><b>一键生成 <span class="m">connect.py</span></b>（含标记定位、自动禁代理）</td></tr>
+              <tr><td>自检</td><td>无</td><td><b>一键生成 <span class="m">selftest.php</span></b></td></tr>
+              <tr><td>哥斯拉兼容</td><td>无</td><td>XOR 模式与哥斯拉 <span class="m">PHP_XOR_BASE64</span> <b>同构</b>，可直接连</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+
+    <details class="prob">
+      <summary><span class="tag">LLM</span>想跑自治渗透，工具链要自己搭<span class="arw">▶</span></summary>
+      <div class="body">
+        <p>集成了 <strong>ARTEX</strong> —— 一个 LLM 多智能体自治渗透框架，全屏内嵌在侧边栏「ARTEX」菜单里。<code>start.sh</code> 会一并拉起 PostgreSQL(5433) + ARTEX(8787)，账号 <code>admin</code> / 密码 <code>admin123</code>（界面只输密码）。</p>
+        <p>ARTEX 自带 skills（<code>api-recon</code> 做 API 侦察、<code>playwright-cli</code> 做浏览器自动化），配好 LLM 后可以自己跑任务。界面和提示词已汉化。</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="sec-h"><span class="num">04</span><h2>功能全览</h2></div>
+    <p class="sec-sub">上面是官方自带，下面是本仓库新增。</p>
+
+    <h3 style="font-size:15px;color:var(--fg2);margin:0 0 12px;font-weight:650">官方自带</h3>
+    <div class="tw" style="margin-bottom:28px">
+      <table>
+        <thead><tr><th>菜单</th><th>路径</th><th>作用</th></tr></thead>
+        <tbody>
+          <tr><td><b>总览</b></td><td><span class="m">/dashboard</span></td><td>全局统计、快捷入口、AWD 流程提示</td></tr>
+          <tr><td><b>侦察</b></td><td><span class="m">/discovery</span></td><td>批量主机存活探测、历史任务</td></tr>
+          <tr><td><b>Shell 管理</b></td><td><span class="m">/attack/shells</span></td><td>WebShell / SSH 资产管理、终端、文件管理</td></tr>
+          <tr><td><b>木马生成</b></td><td><span class="m">/attack/trojan</span></td><td>PHP/JSP/ASPX 一句话与变体生成</td></tr>
+          <tr><td><b>权限维持</b></td><td><span class="m">/attack/persistence</span></td><td>投放不死马 / 内存马</td></tr>
+          <tr><td><b>WebShell 扫描</b></td><td><span class="m">/defense/webshell</span></td><td>源码级后门查杀（多语言、支持压缩包）</td></tr>
+          <tr><td><b>WAF 管理</b></td><td><span class="m">/defense/waf</span></td><td>通过 SSH 一键部署 PHP 软 WAF</td></tr>
+          <tr><td><b>基线管理</b></td><td><span class="m">/ops/baseline</span></td><td>备份、巡检、权限、后门清理、端口封禁</td></tr>
+          <tr><td><b>数据库管理</b></td><td><span class="m">/ops/database</span></td><td>MySQL 资产、终端、备份恢复</td></tr>
+          <tr><td><b>Flag</b></td><td><span class="m">/flag</span></td><td>定时批量读取 Flag、成绩统计</td></tr>
+          <tr><td><b>AWDP Break</b></td><td><span class="m">/awdp/break</span></td><td>源码漏洞发现、Payload / Exploit / WAF 绕过知识库</td></tr>
+          <tr><td><b>AWDP Fix</b></td><td><span class="m">/awdp/fix</span></td><td>漏洞扫描、知识库（81 条）、规则（185 条）、补丁包生成</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="font-size:15px;color:var(--fg2);margin:0 0 12px;font-weight:650">本仓库新增</h3>
+    <div class="tw">
+      <table>
+        <thead><tr><th>模块</th><th>入口</th><th>一句话</th><th>代码量</th></tr></thead>
+        <tbody>
+          <tr><td><b>端口与上传点扫描</b> <span class="pill new">NEW</span></td><td>侧边栏「端口扫描」</td><td>ICMP+TCP 双栈探活、端口扫描、服务指纹、Web 探测、上传点探测</td><td><span class="m">2844 行</span></td></tr>
+          <tr><td><b>Flag 自动查找</b> <span class="pill new">NEW</span></td><td><span class="m">/flag</span> 页按钮</td><td>遍历候选路径 + 正则提取 + 一键转监控任务</td><td><span class="m">673 行</span></td></tr>
+          <tr><td><b>木马免杀 v1</b> <span class="pill new">NEW</span></td><td><span class="m">/attack/trojan</span></td><td>三档混淆 + 图片马 + <code>.htaccess</code> / <code>.user.ini</code></td><td><span class="m">1140 行</span></td></tr>
+          <tr><td><b>木马生成器 v2</b> <span class="pill new">NEW</span></td><td>同上</td><td>加密信道 + 五种图片马 + 连接脚本 + 自检脚本</td><td><span class="m">同上</span></td></tr>
+          <tr><td><b>AWDP 深度审计</b> <span class="pill new">NEW</span></td><td>AWDP 页「🔬 深度审计」</td><td>跨行污点分析，补官方漏报，可与官方对比</td><td><span class="m">1906 行</span></td></tr>
+          <tr><td><b>AI 修复包</b> <span class="pill new">NEW</span></td><td>上传 ZIP 后自动弹出</td><td>源码 + 问题清单落盘 + 本地链接，直接交给 AI</td><td><span class="m">—</span></td></tr>
+          <tr><td><b>ARTEX 集成</b> <span class="pill new">NEW</span></td><td>侧边栏「ARTEX」</td><td>LLM 自治渗透，全屏内嵌，一键同起</td><td><span class="m">350 行</span></td></tr>
+          <tr><td><b>Windows 免装 Python</b> <span class="pill new">NEW</span></td><td>—</td><td>包内自带 Python 3.11 embeddable（34 文件）</td><td><span class="m">—</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="start">
+  <div class="wrap">
+    <div class="sec-h"><span class="num">05</span><h2>快速开始</h2></div>
+    <p class="sec-sub">解压即用，不用编译，不用装依赖。</p>
+
+    <div class="tw" style="margin-bottom:24px">
+      <table>
+        <thead><tr><th>平台</th><th>下载文件</th><th>启动</th></tr></thead>
+        <tbody>
+          <tr><td><b>macOS</b> (Apple Silicon)</td><td><span class="m">LingOps-AWD-AWDP-Enhanced-v1.3.3-darwin-arm64.zip</span></td><td><code>./start.sh</code></td></tr>
+          <tr><td><b>Windows</b> x64</td><td><span class="m">LingOps-AWD-AWDP-Enhanced-v1.3.3-win64.zip</span></td><td>双击 <code>start.bat</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <pre><code><span class="c"># macOS</span>
+unzip LingOps-AWD-AWDP-Enhanced-v1.3.3-darwin-arm64.zip
+<span class="k">cd</span> LingOps-AWD-AWDP-Enhanced-v1.3.3-darwin-arm64
+./start.sh
+
+<span class="c"># 浏览器打开 → 账号 admin / admin123</span>
+<span class="c"># http://127.0.0.1:12800</span></code><button class="copy">复制</button></pre>
+
+    <div class="note">
+      <b>不要</b>直接在家目录执行 <code>./lingops-server</code> —— 它会去 <code>~/configs</code>、<code>~/</code>、<code>/etc/lingops</code> 找配置，找不到就报
+      <code>Config File "config" Not Found</code>。<code>start.sh</code> 会先 <code>cd</code> 到脚本所在目录，所以没问题。
+    </div>
+
+    <div class="tw" style="margin-top:24px">
+      <table>
+        <thead><tr><th>服务</th><th>端口</th><th>必需</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><b>主服务</b></td><td><span class="m">12800</span></td><td>✅</td><td>Go 二进制，官方前端 + 注入层</td></tr>
+          <tr><td><b>扩展后端</b></td><td><span class="m">12801</span></td><td>推荐</td><td>端口/上传点扫描、Flag 猎手、AI 修复包</td></tr>
+          <tr><td><b>ARTEX</b></td><td><span class="m">8787</span></td><td>可选</td><td>LLM 自治渗透</td></tr>
+          <tr><td><b>PostgreSQL</b></td><td><span class="m">5433</span></td><td>可选</td><td>ARTEX 的数据源</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="arch">
+  <div class="wrap">
+    <div class="sec-h"><span class="num">06</span><h2>架构：扩展是怎么挂上去的</h2></div>
+    <p class="sec-sub">
+      官方只发编译好的二进制和打包好的前端，没有源码。但官方前端每次请求都重新读 <code>frontend/dist/index.html</code>，
+      而 <code>assets_v2/</code> 下任意文件都能被静态访问 —— 于是可以注入。
+    </p>
+    <div class="arch">浏览器请求 <b>/</b>
+   ↓
+lingops-server 读 <b>frontend/dist/index.html</b>
+   ↓
+&lt;html&gt; 里多了一行：
+   &lt;script src="/assets_v2/lp-ext/boot.js?v=23" defer&gt;&lt;/script&gt;
+   ↓
+<b>boot.js</b> 执行：
+   ├── 往侧边栏塞「端口扫描」「ARTEX」两个菜单项
+   ├── 隐藏官方自带的空「团队」占位菜单
+   └── 点菜单 → 全屏 iframe 加载 panel.html
+   ↓
+panel.html 与主页面同源（都是 <u>127.0.0.1:12800</u>）
+   → 能直接读 <i>localStorage["lingops_token"]</i>
+   → 能调 <i>/api/v1/assets</i> 实现「从资产库导入目标」
+   → 能调 <i>/api/v1/assets</i> 把扫描结果写回资产库
+   ↓
+重活交给独立进程 <b>ext/lp_scan_server.py</b>（12801，纯标准库）</div>
+
+    <div class="grid g2" style="margin-top:20px">
+      <div class="card">
+        <h3><span class="ic">🎭</span>为什么用 <code>display:none</code> 藏菜单</h3>
+        <p>侧边栏是 React 渲染的。手动 <code>removeChild</code> 会让 React 后续卸载时抛 <code>NotFoundError</code>。<code>display:none</code> 对 React 透明，且 <code>watchDom</code> 会在重渲染后自动补一次。</p>
+      </div>
+      <div class="card">
+        <h3><span class="ic">🕳️</span>官方菜单没有 <code>&lt;a href&gt;</code></h3>
+        <p>用 antd Menu 的 <code>items</code> API 渲染，输出是 <code>&lt;li class="ant-menu-item"&gt;&lt;span&gt;团队&lt;/span&gt;&lt;/li&gt;</code>，<strong>没有链接</strong>。选择器只能按 <code>.ant-menu-item</code> 的 <code>textContent</code> 匹配。</p>
+      </div>
+    </div>
+
+    <div class="warn">
+      <b>官方升级会覆盖注入。</b>替换 <code>frontend/</code> 后 <code>index.html</code> 里的注入行会消失，扩展失效 —— 重新执行注入即可（见 <code>ext/uninstall.sh</code> 的注释）。
+    </div>
+  </div>
+</section>
+
+<section id="self">
+  <div class="wrap">
+    <div class="sec-h"><span class="num">07</span><h2>自测与回归</h2></div>
+    <p class="sec-sub">改审计引擎前后都跑一遍，防止「修一个漏报换来三个误报」。</p>
+    <pre><code><span class="k">cd</span> tests/awdp-corpus
+node run.js          <span class="c"># 汇总，退出码 0=全绿 / 1=有回归</span>
+node run.js -v       <span class="c"># 逐文件看命中 / 漏报 / 误报</span>
+node run.js --json   <span class="c"># 机器可读</span></code><button class="copy">复制</button></pre>
+    <div class="grid g2" style="margin-top:6px">
+      <div class="card">
+        <h3><span class="ic">📊</span>当前基线</h3>
+        <p>真漏洞 <b>34/34 = 100%</b>　安全代码 <b>27/27 = 100%</b><br>回归 <b>12/12 = 100%</b>　对抗语料 <b>14/15 = 93.3%</b>（x08 为已知盲区）</p>
+      </div>
+      <div class="card">
+        <h3><span class="ic">🔍</span>屏蔽层自测</h3>
+        <p>深度审计第一段是「抹掉注释和字符串」，抹多了必然漏报，而 <code>node --check</code> 查不出。屏蔽后<strong>再编译一遍</strong>，编译不过就是抹多了。</p>
+      </div>
+    </div>
+    <pre><code>node tests/awdp-corpus/oracle/mask-audit.js tests/awdp-corpus/corpus</code><button class="copy">复制</button></pre>
+    <p style="font-size:13.5px;color:var(--fg2)">v1.3.1 靠它抓出 5 个这类 bug（Python <code>//</code> 整除被当注释、JS 正则字面量里的引号、JS 嵌套模板字符串、PHP shebang、PHP heredoc 里的 <code>/*</code>）。</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="row">
+      <div style="max-width:520px">
+        <div class="brand" style="margin-bottom:12px"><span class="dot"></span>LingOps <b>AWD/AWDP</b> Enhanced</div>
+        <p style="font-size:13px;line-height:1.8">
+          原项目：<a href="https://github.com/zhanglinglingc/lingops" target="_blank" rel="noopener">zhanglinglingc/lingops</a> v0.2.0。
+          <code>lingops-server</code> 与 <code>artex/artex</code> 二进制<strong>原样来自官方 release</strong>，未做任何修改。
+          上游未声明开源许可证，二进制版权归原作者所有，仅作学习与竞赛使用，<strong>请勿商用</strong>。
+        </p>
+      </div>
+      <div style="font-size:13px;line-height:2.1">
+        <div><a href="https://github.com/GeWu-academy/LingOps-Enhanced">源码仓库</a></div>
+        <div><a href="https://github.com/GeWu-academy/LingOps-Enhanced/releases/latest">下载最新版</a></div>
+        <div><a href="https://github.com/GeWu-academy/LingOps-Enhanced/tree/main/docs">23 章教程</a></div>
+        <div><a href="https://github.com/GeWu-academy/LingOps-Enhanced/blob/main/CHANGELOG.md">变更记录</a></div>
+      </div>
+    </div>
+    <div class="warn">
+      <b>⚠️ 用途限制：</b>本项目仅可用于授权的靶场、CTF / AWD 比赛和你自己的测试环境。
+      木马生成、WebShell 管理、漏洞利用这些功能，用在未授权的系统上属于违法犯罪。使用者自行承担全部法律责任。
+    </div>
+    <p style="margin-top:26px;font-size:12.5px">v1.3.3 · 基于灵控 LingOps v0.2.0 二次增强 · 官方二进制零修改</p>
+  </div>
+</footer>
+
+<script>
+document.querySelectorAll('.copy').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var pre = b.parentElement;
+    var text = pre.innerText.replace(/\n?复制$/, '');
+    navigator.clipboard.writeText(text).then(function () {
+      b.textContent = '已复制';
+      setTimeout(function () { b.textContent = '复制'; }, 1400);
+    }).catch(function () { b.textContent = '复制失败'; });
+  });
+});
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav a[href^="#"]'));
+  var targets = links.map(function (a) { return document.querySelector(a.getAttribute('href')); });
+  function sync() {
+    var y = window.scrollY + 110, i = -1;
+    targets.forEach(function (t, k) { if (t && t.offsetTop <= y) i = k; });
+    links.forEach(function (a, k) {
+      a.style.color = k === i ? 'var(--acc)' : '';
+      a.style.background = k === i ? 'var(--panel2)' : '';
+    });
+  }
+  window.addEventListener('scroll', sync, { passive: true });
+  sync();
+})();
+</script>
+</body>
+</html>
