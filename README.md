@@ -402,7 +402,7 @@ LingOps-AWD-AWDP-Enhanced-v1.3.3-darwin-arm64/
 │   ├── skills/                 #   api-recon / playwright-cli
 │   └── config.example.json     #   配置模板（真配置在 .gitignore 里）
 │
-├── tests/awdp-corpus/          # 88 个回归样本
+├── tests/awdp-corpus/          # 回归测试工具（语料仅源码仓库提供）
 │   ├── run.js                  #   直接 node run.js，不需要浏览器
 │   ├── corpus/vuln/            #   34 个真漏洞（6 种语言）
 │   ├── corpus/safe/            #   27 个安全写法
@@ -446,6 +446,9 @@ artex/config.json # PostgreSQL 口令
 ### 9.1 深度审计引擎
 
 改 `awdpplus.js` 前后都跑一遍，防止「修一个漏报换来三个误报」：
+
+> ⚠️ 发布包里**不含** `corpus/`（那是故意写成有漏洞的样本，随包发出去会让人自扫自己时满屏 critical）。
+> 需要跑回归请用源码仓库，或把 `corpus/` 放回 `tests/awdp-corpus/` 后再执行下面的命令。
 
 ```bash
 cd tests/awdp-corpus

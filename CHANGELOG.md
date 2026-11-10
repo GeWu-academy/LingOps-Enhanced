@@ -7,6 +7,30 @@
 
 ---
 
+## v1.3.7 · 2026-11-10
+
+### 修复发布包泄露本机配置
+
+对 v1.3.6 的两个发布 zip 做了一次「用自己的深度审计扫自己」，代码本身没有真实漏洞（308 条 findings 全部来自故意埋洞的回归语料、引擎自身的规则表正则字面量、第三方 vendor 库和中文文档串），但**打包环节漏了一个文件**：
+
+| 问题 | 影响 | 修法 |
+|---|---|---|
+| `artex/config.json` 被塞进 darwin 包 | 里面是本机 PostgreSQL 明文口令（`database.password`），且别人装完会拿着这个配置去连库，artex 直接起不来 | 打包排除，只发 `config.example.json` |
+| 旧 zip 清单里带 `tests/awdp-corpus/corpus/` | 107 个**故意写成有漏洞**的样本随包分发，用户自扫自己时满屏 critical | 打包排除，回归语料只留在源码仓库 |
+| 打包脚本只按目录名过滤 | `SKIP_PARTS` 只挡 `__pycache__`/`.git`/`.DS_Store`/`node_modules`，`.gitignore` 里的运行态文件全会被带走 | 新增 `DROP_REL`/`DROP_PREFIX`/`DROP_SUFFIX` 显式清单 + `git check-ignore --no-index` 双保险 |
+
+> 如果你已经在用 v1.3.6 的 darwin 包，并且 artex 连的就是本机库，建议把 `artex/config.json` 里的 `database.password` 改掉一次（该口令只用于本地 `127.0.0.1` 的 artex 库，不是外网凭据）。
+
+### 回归语料不再随包
+
+`tests/awdp-corpus/run.js` 在语料目录缺失时会明确报「发布包里不带回归语料」，退出码 3，不再静默打印「全部通过」。README 与 `docs/20-awdp-deep-scan.md` 已同步说明。
+
+### 引擎版本号
+
+`awdpplus.js` 的 `VERSION` 改为 `1.3.7`（本轮无检测逻辑改动，纯粹跟随发版）。
+
+---
+
 ## v1.3.6 · 2026-11-10
 
 ### 收录 2020–2026 年真实 CVE

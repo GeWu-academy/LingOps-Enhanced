@@ -76,6 +76,13 @@ for (const suite of SUITES) {
   results.push({ suite: suite.label, dir: suite.dir, pass, known, total: rows.length, rows });
 }
 
+if (!results.length) {
+  console.error('没找到语料目录：' + CORPUS);
+  console.error('发布包里不带故意埋洞的回归语料（tests/awdp-corpus/corpus/），');
+  console.error('要跑自测请用源码仓库，或把语料放回该目录后重跑。');
+  process.exit(3);
+}
+
 if (JSONOUT) {
   console.log(JSON.stringify({ engine: ENGINE, failed, results }, null, 1));
 } else {

@@ -282,7 +282,8 @@ resp = requests.get(target)     # lingops:ignore 爬虫职责就是访问目标�
 ## 十一、自己验证引擎（回归自测）
 
 引擎自带 88 个已知答案的样本（真漏洞 34 / 安全写法 27 / 回归 12 / 对抗 15），
-装在 `tests/awdp-corpus/`，**不需要浏览器**，Node 直接跑：
+装在 `tests/awdp-corpus/`，**不需要浏览器**，Node 直接跑。
+发布包里不带 `corpus/`（故意埋洞的样本不适合随包分发），需自测请用源码仓库：
 
 ```bash
 cd tests/awdp-corpus
