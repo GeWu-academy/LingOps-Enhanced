@@ -69,8 +69,8 @@ WIN_ONLY = {"lingops-server.exe", "start.bat", "stop.bat"}
 # win64 专用覆盖层：包内便携版 Python + 改过的 start.bat（相对包根，按目录树覆盖/新增）
 WIN_EXTRA = "/tmp/lpzip/win-extra"
 
-# 新增目录：旧 zip 清单里没有，直接从 INSTALL 补齐（平台无关的测试语料/文档）
-EXTRA_DIRS = ["tests", "ext/tools"]
+# 新增目录：旧 zip 清单里没有，直接从 INSTALL 补齐（平台无关的测试语料/文档/CLI）
+EXTRA_DIRS = ["tests", "ext/tools", "cli"]
 # 新增的根目录文件（旧 zip 清单里没有）
 EXTRA_FILES = ["CHANGELOG.md", "README.md", ".gitignore"]
 SKIP_PARTS = {"__pycache__", ".git", ".DS_Store", "node_modules"}
@@ -152,7 +152,8 @@ def build(old, new, root, from_disk_always, extra_dir=None):
             zi = zipfile.ZipInfo(name, date_time=time.localtime(os.path.getmtime(disk))[:6]
                                  if use_disk else time.localtime()[:6])
             zi.compress_type = zipfile.ZIP_DEFLATED
-            mode = 0o755 if (rel.endswith(".sh") or rel in ("lingops-server", "lingops-server.exe", "artex/artex")) else 0o644
+            mode = 0o755 if (rel.endswith(".sh") or rel.startswith("cli/")
+                             or rel in ("lingops-server", "lingops-server.exe", "artex/artex")) else 0o644
             zi.external_attr = (mode & 0xFFFF) << 16
             out.writestr(zi, data)
             written += 1

@@ -9,6 +9,40 @@
 
 ## v1.3.9 · 2026-11-10
 
+### 深度审计做成命令行版：`cli/awdp-audit`
+
+网页端「🔬 深度审计」要开浏览器、要 12801 扩展服务在跑、一次只能挑一个包上传。比赛现场想批量扫、
+想在 CI 里卡住、想 `jq` 一下历史报告，都不方便。所以补了个 CLI：
+
+```bash
+./cli/awdp-audit ./src                      # 目录
+./cli/awdp-audit challenge.zip -s critical  # 比赛发的源码包
+./cli/awdp-audit . -s high --fail-on high -q  # 有高危就退出码 1，直接挂 CI
+```
+
+- **没有第二份规则**：引擎段在运行时从 `frontend/dist/assets_v2/lp-ext/awdpplus.js` 里切出来
+  （边界 = 注释块 `* 8. 与官方引擎对比`，失败退回 `function getToken(`），改规则两边同时生效。
+  切不出边界会直接报 `无法定位引擎边界`，不会静默扫出空结果。
+- **零依赖**：只用 Node 标准库，`npm install` 都不用。要求 **Node ≥ 18**（ZIP 走引擎自带的
+  `readZip`，依赖 `DecompressionStream('deflate-raw')`；低于 18 时目录/单文件照扫）。
+- 支持 `-f text|json`、`-s/--min-sev`、`-c/--cat`、`-l/--lang`、`--exclude`（可重复）、
+  `--vendor`、`--no-lowconf`、`--fail-on`、`--list-rules`、`-o`、`-q`、`--no-color`。
+- 退出码：`0` 无达标问题 / `1` 有 / `2` 参数或运行错误。
+- 新增 `cli/awdp-audit`（bash 启动器）与 `cli/awdp-audit.cmd`（Windows），`build_release.py`
+  的 `EXTRA_DIRS` 加了 `cli`，并在打 zip 时把 `cli/*` 标成 0755（否则解压后启动器没执行权限）。
+
+**和网页端的一致性靠语料验证**（同一份引擎，所以结论必须完全一样）：
+
+| 语料 | 期望 | CLI 实测 |
+|---|---|---|
+| `corpus/vuln` 34 | 全命中 | 34 / 34 ✅ |
+| `corpus/safe` 27 | 零误报 | 0 处 ✅ |
+| `corpus/regress` 12 | 全命中 | 12 / 12 ✅ |
+| `corpus/modern` 17 | 全命中 | 17 / 17 ✅ |
+| `corpus/adversarial` 15 | 高危以上 | 14 / 15（同一个已知盲区） ✅ |
+
+性能：34 个文件约 20ms，整个仓库 130 个文件约 220ms。用法见 [docs/24-cli-audit.md](docs/24-cli-audit.md)。
+
 ### 深度审计扫自己：210 条命中里挑出 1 条真漏洞并修掉
 
 用引擎把 v1.3.8 两个包全量扫了一遍（darwin 210 条 / win64 208 条），逐条过了一遍：

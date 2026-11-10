@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# LingOps AWDP 深度审计 · CLI 启动器（macOS / Linux）
+set -e
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec node "$DIR/awdp-audit.js" "$@"

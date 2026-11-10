@@ -116,6 +116,7 @@ Config File "config" Not Found in "[/Users/shu/configs /Users/shu /etc/lingops]"
 - [21 AI 修复包](21-ai-fix-bundle.md)：**扩展模块**，上传 ZIP 自动生成 `~/LingOps-AWDP/<id>/`（源码 + `bundle.md` + `prompt.txt`）与 `http://127.0.0.1:12801/awdp/<id>/` 链接，交给本地/在线 AI 修漏洞
 - [22 木马生成器 v2](22-trojan-godzilla.md)：**扩展模块**，XOR+Base64（哥斯拉兼容）/ AES-128-CBC / Base64 加密信道 + md5 标记定位图片马 + 一键 `connect.py` 与 `selftest.php`
 - [23 ARTEX 自治渗透](23-artex.md)：**集成模块**，侧边栏「ARTEX」内嵌 8787 完整界面，`start.sh` 自动拉 PostgreSQL(5433) + ARTEX(8787)；账号 `admin` / 密码 `admin123`（界面只输密码），需配 LLM 才会真正跑任务
+- [24 命令行版审计](24-cli-audit.md)：**CLI**，`cli/awdp-audit <目录|文件|zip>`，与网页端深度审计**同一套引擎、规则零漂移**；支持 `-f json`、`--fail-on` 退出码卡 CI、`--exclude`、`--min-sev`；只要 Node ≥ 18，零依赖，全仓库 130 文件约 220ms
 - [变更记录 CHANGELOG](../CHANGELOG.md)：**这包到底改了什么**，按版本列（v1.1 扩展模块 / v1.2 修漏报 / v1.3 修净化诱饵），以及怎么确认拿到的是改过的包（v1.3.1 修了 5 个「屏蔽过度导致漏报」的 bug）
 
 ---
@@ -168,3 +169,4 @@ Config File "config" Not Found in "[/Users/shu/configs /Users/shu /etc/lingops]"
 17. **不确定扫描器靠不靠谱？自己跑**：`node tests/awdp-corpus/run.js` 会用 88 个已知答案的样本（真漏洞 34 / 安全写法 27 / 回归 12 / 对抗 15）验证引擎，退出码 0=全绿。改过引擎规则必须先跑它 —— 见 [20 章第十一节](20-awdp-deep-scan.md#十一自己验证引擎回归自测)。
 18. **怀疑「扫不出漏洞」是引擎自己的错时**：深度审计是「先抹注释/字符串，再找 sink」，第一段抹多了就必然漏报，而 `node --check` 查不出这种错。用 `node tests/awdp-corpus/oracle/mask-audit.js <目录>` 拿真实代码压测屏蔽层——它会把每个文件屏蔽后**再编译一遍**，编译不过就是抹多了。v1.3.1 靠它抓出 5 个这类 bug（Python `//` 整除被当注释、JS 正则字面量里的引号、JS 嵌套模板字符串、PHP shebang、PHP heredoc 里的 `/*`），见 [20 章十一](20-awdp-deep-scan.md#屏蔽层单独测oraclemask-auditjs)。
 
+19. **不想开浏览器、或者要批量扫/卡 CI**：用命令行版 `cli/awdp-audit`，和网页端深度审计**同一份引擎代码**（运行时从 `awdpplus.js` 切出分析段），规则零漂移、零 npm 依赖、只要 Node ≥ 18。`awdp-audit ./src -s high --fail-on high` 有问题就退出码 1，直接挂到 pre-commit / GitHub Actions 上。见 [24 章](24-cli-audit.md)。
