@@ -263,8 +263,8 @@ ARTEX 自带 skills（`api-recon` 做 API 侦察、`playwright-cli` 做浏览器
 
 | 平台 | 文件 | 解压后目录 | 启动方式 |
 |---|---|---|---|
-| macOS (Apple Silicon) | `LingOps-AWD-AWDP-Enhanced-v1.3.7-darwin-arm64.zip` | `LingOps-AWD-AWDP-Enhanced-v1.3.7-darwin-arm64/` | `./start.sh` |
-| Windows x64 | `LingOps-AWD-AWDP-Enhanced-v1.3.7-win64.zip` | `LingOps-AWD-AWDP-Enhanced-v1.3.7-win64/` | 双击 `start.bat` |
+| macOS (Apple Silicon) | `LingOps-AWD-AWDP-Enhanced-v1.3.8-darwin-arm64.zip` | `LingOps-AWD-AWDP-Enhanced-v1.3.8-darwin-arm64/` | `./start.sh` |
+| Windows x64 | `LingOps-AWD-AWDP-Enhanced-v1.3.8-win64.zip` | `LingOps-AWD-AWDP-Enhanced-v1.3.8-win64/` | 双击 `start.bat` |
 
 > Windows 包**内置便携版 Python 3.11**（`python/` 目录，34 个文件），不用装 Python、不用 pip。
 > 想用自己装的：删掉 `python\` 目录，`start.bat` 会自动退回 `python` → `py -3`。
@@ -273,8 +273,8 @@ ARTEX 自带 skills（`api-recon` 做 API 侦察、`playwright-cli` 做浏览器
 
 ```bash
 # macOS
-unzip LingOps-AWD-AWDP-Enhanced-v1.3.7-darwin-arm64.zip
-cd LingOps-AWD-AWDP-Enhanced-v1.3.7-darwin-arm64
+unzip LingOps-AWD-AWDP-Enhanced-v1.3.8-darwin-arm64.zip
+cd LingOps-AWD-AWDP-Enhanced-v1.3.8-darwin-arm64
 ./start.sh
 ```
 
@@ -316,6 +316,40 @@ bash start-ext.sh 12901   # 自定义端口
 curl http://127.0.0.1:12801/api/health
 # {"ok": true, "version": "1.0.0", "jobs": 0}
 ```
+
+### 5.5 下载后 60 秒自检（怎么确认「真的能用」）
+
+`./start.sh` 跑完，把下面五条依次粘进终端。**全绿才算能用**，任何一条不对都对应到具体原因：
+
+```bash
+# 1) 主服务活着
+curl -s http://127.0.0.1:12800/ -o /dev/null -w '%{http_code}\n'      # 200
+
+# 2) 扩展后端活着（端口扫描 / 上传点 / AI 修复包都靠它）
+curl -s http://127.0.0.1:12801/api/health                            # {"ok": true, ...}
+
+# 3) 内容库不是空壳（首次启动由 Go 后端从 data/poc/*.json 灌进去）
+sqlite3 data/lingops.db "select count(*) from vulnerability_templates;"      # ≈1047
+sqlite3 data/lingops.db "select count(*) from vulnerability_scan_rules;"     # ≈759
+
+# 4) 注入层版本对得上
+grep -o "VERSION = '[0-9.]*'" frontend/dist/assets_v2/lp-ext/awdpplus.js     # '1.3.8'
+
+# 5) 只有用 ARTEX 才看这条（可选组件，要 PostgreSQL + LLM）
+grep "skill directory" /tmp/lingops-artex.log    # 必须是 <你的安装目录>/artex/skills
+```
+
+对应关系：
+
+| 哪条挂了 | 说明 |
+|---|---|
+| 1 | 端口被占或 `configs/config.yaml` 丢了。看启动输出第一屏 |
+| 2 | 缺 `python3` 或 `ext/lp_scan_server.py`。看 `/tmp/lingops-scan-ext.log` |
+| 3 | 库里是 0 → 官方后端没加载种子。确认 `data/poc/break-library.json`、`fix-library.json` 存在，且 `data/lingops.db` 没被旧版残留污染（删掉重建） |
+| 4 | 前端被旧缓存覆盖了。`⌘⇧R` 硬刷新，或确认浏览器没加载到别的目录 |
+| 5 | 技能列表空 = `skill_dir` 指错地方（上游模板默认是 Linux 路径 `/opt/artex/skills`）。`start.sh` 会自动改，手工启动的自己改成 `./skills` |
+
+> **ARTEX 是可选组件**，不配 PostgreSQL 和 LLM Key 时它就是「能启动但空转」（日志会写 `[engine] no LLM provider configured`，这是设计如此，不是报错）。主服务、扩展后端、内容库这三块**不依赖任何外部服务**，开箱即用。
 
 ---
 
@@ -373,7 +407,7 @@ panel.html 与主页面同源（都是 127.0.0.1:12800）
 ## 七、目录结构
 
 ```
-LingOps-AWD-AWDP-Enhanced-v1.3.7-darwin-arm64/
+LingOps-AWD-AWDP-Enhanced-v1.3.8-darwin-arm64/
 ├── lingops-server              # 官方 Go 二进制（未修改，22 MB）
 ├── start.sh / stop.sh          # 一键启动 / 停止（macOS）
 ├── start.bat / stop.bat        # 一键启动 / 停止（Windows）
@@ -523,6 +557,7 @@ python3 ext/tools/patch_labels.py           # 幂等补齐
 
 - **ARTEX 需要 PostgreSQL 16**：`start.sh` 只负责启动不负责安装。macOS 用 `brew install postgresql@16`；
 - **ARTEX 需要配 LLM**：不配模型不会真正跑任务；
+- **Windows 包不含 ARTEX**：`win64` 包里没有 `artex/`（38 MB 的 Windows 二进制 + PostgreSQL 在 Windows 上的初始化流程没条件实测，所以没塞进去）。主服务、扩展后端、内容库、深度审计在 Windows 上是完整可用的；要用 ARTEX 自己去 [jiwoochris/artex-global](https://github.com/jiwoochris/artex-global/releases/tag/v0.3.15-global.1) 下 `artex-0.3.15-global.1-windows-amd64.zip`；
 - **端口扫描需要靶机可达**：扩展后端跑在本机，扫内网要保证网络通；
 - **Windows Defender** 可能对未签名的 `python.exe` 报「未知发布者」，点「仍要运行」；
 - **浏览器缓存**：12800 的响应没有 `Cache-Control`，改完前端要 **⌘⇧R 硬刷新**才生效；

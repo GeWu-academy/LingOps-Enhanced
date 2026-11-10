@@ -20,7 +20,7 @@ import os, sys, zipfile, time
 BASE = "/Users/shu/ctf/ctf工具包"
 INSTALL = os.path.join(BASE, "LingOps_v0.2_darwin_arm64")
 
-VER = "v1.3.7"
+VER = "v1.3.8"
 
 JOBS = [
     # (old zip, new zip, root in zip, take-from-disk)

@@ -73,6 +73,13 @@ if [ "$WANT_ARTEX" = "1" ] && [ -x ./artex/artex ]; then
     cp ./artex/config.example.json ./artex/config.json
     echo "[ARTEX] 已生成 artex/config.json，请填入 database.password（见 docs/23-artex.md）"
   fi
+  # 0.1) 自愈：上游模板默认 skill_dir=/opt/artex/skills（Linux 路径），在 macOS/Windows 上
+  #      该目录不存在，artex 不会报错、只会静默加载 0 个技能。改成相对 ./skills（cwd = artex/）。
+  if [ -f ./artex/config.json ] && grep -q '"/opt/artex/skills"' ./artex/config.json 2>/dev/null; then
+    /usr/bin/sed -i '' 's|"/opt/artex/skills"|"./skills"|' ./artex/config.json 2>/dev/null \
+      || sed -i 's|"/opt/artex/skills"|"./skills"|' ./artex/config.json
+    echo "[ARTEX] 已修正 config.json 的 skill_dir → ./skills（原值为 Linux 路径）"
+  fi
 
   # 1) PostgreSQL：ARTEX 的唯一数据源
   if port_busy "$PG_PORT"; then

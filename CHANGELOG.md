@@ -7,6 +7,32 @@
 
 ---
 
+## v1.3.8 · 2026-11-10
+
+### 修复「下载下来 ARTEX 起来了但一个技能都没有」
+
+拿 v1.3.7 的包在干净目录里按用户视角实测了一遍（只放 `artex` 二进制 + `skills/` + 模板配置），结论：**主服务没问题，ARTEX 有个静默失效点**。
+
+| 现象 | 根因 | 修法 |
+|---|---|---|
+| ARTEX 界面里技能列表是空的，`api-recon` / `playwright-cli` / `scopesentry` 全看不到 | `config.example.json` 里 `skill_dir` 是上游的 Linux 绝对路径 `/opt/artex/skills`；macOS / Windows 上这个目录不存在，而 artex **不报错**，只打一行 `[config] skill directory: /opt/artex/skills` 然后加载 0 个技能 | 模板改成 `"skill_dir": "./skills"`（`start.sh` 是 `cd artex/` 启动的，正好指向 `artex/skills/`） |
+| 已经用旧版生成过 `config.json` 的人，改了模板也不会生效 | `start.sh` 只在 `config.json` 不存在时才复制模板 | `start.sh` 增加自愈：检测到 `"/opt/artex/skills"` 就原地改成 `"./skills"` 并打印提示 |
+
+实测对照（同一个二进制、同一份 skills）：
+
+```
+# 修复前（模板原值）
+[config] skill directory: /opt/artex/skills      ← 不存在，0 个技能
+# 修复后
+[config] skill directory: /tmp/e2e/artex/skills  ← 3 个技能正常
+```
+
+`docs/23-artex.md` 补了两处：技能章节写明 `skill_dir` 必须是真实目录 + 优先级，常见问题表新增「技能列表是空的」和「`engine idle` 不是报错」两行。
+
+> 顺带确认：ARTEX 二进制就是上游 `jiwoochris/artex-global` 的 `v0.3.15-global.1`（`/api/health` 返回 `{"ok":true,"service":"artex","version":"0.3.15-global.1"}`），`skill_dir` 这个坑上游模板本身就带着，不是我们改出来的。
+
+---
+
 ## v1.3.7 · 2026-11-10
 
 ### 修复发布包泄露本机配置

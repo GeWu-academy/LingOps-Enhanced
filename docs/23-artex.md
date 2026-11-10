@@ -249,6 +249,10 @@ export OPENAI_API_KEY='sk-...'
 
 自定义 skill：往 `artex/skills/<名字>/` 放 `SKILL.md` + 脚本，重启后自动出现在 agent 可选列表里。
 
+> **`skill_dir` 必须指向真实目录。** `config.json` 里 `"skill_dir": "./skills"`（相对路径按 **artex 进程的工作目录** 解析，`start.sh` 是 `cd artex/` 后启动的，所以就是 `artex/skills/`）。
+> 上游 `config.example.json` 里默认写的是 `/opt/artex/skills`（Linux 绝对路径），在 macOS / Windows 上**不存在**，而 artex **不会报错**——只在日志里打一行 `[config] skill directory: /opt/artex/skills`，然后静默加载 **0 个技能**，界面上看不到 `api-recon` / `playwright-cli` / `scopesentry`。
+> `start.sh` 会自愈（检测到该值就改成 `./skills` 并打印提示）；手工启动的话自己确认日志里那行是 `<你的安装目录>/artex/skills`。
+
 ---
 
 ## 七、数据在哪 / 怎么清
@@ -286,6 +290,8 @@ rm -rf artex/data artex/jwt.key
 | 启动卡住不动 | `brew` 在跑 `auto-update`。`export HOMEBREW_NO_AUTO_UPDATE=1` 再装依赖 |
 | 端口 8787 被占 | `lsof -nP -iTCP:8787 -sTCP:LISTEN` 找到旧进程 kill，或 `./stop.sh` |
 | 任务一直不跑 | 没配 LLM。看日志有没有 `engine idle`，按第五章配 |
+| agent 里看不到任何技能 / 技能列表是空的 | `config.json` 的 `skill_dir` 指向了不存在的路径（典型是上游模板里的 `/opt/artex/skills`）。日志 `[config] skill directory:` 那行必须是你机器上真实存在的 `.../artex/skills`；改成 `./skills` 后重启 |
+| 启动日志 `[engine] no LLM provider configured` | 正常现象，不是报错。ARTEX 必须配 LLM 才能干活，按第五章配 |
 
 ---
 
