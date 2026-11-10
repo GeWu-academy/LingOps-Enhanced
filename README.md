@@ -7,9 +7,9 @@
 ![version](https://img.shields.io/badge/version-1.3.3-green)
 ![docs](https://img.shields.io/badge/docs-23%20%E7%AB%A0-orange)
 
-> 📄 网页版介绍页：源码在 [`site/index.html`](site/index.html)（单文件、零外部依赖）。
-> 组织 owner 在 **Settings → Pages** 把 Source 设为 `Deploy from a branch` → `main` → `/site` 后，
-> 即可通过 `https://gewu-academy.github.io/LingOps-Enhanced/` 访问。
+> 📄 网页版介绍页：**<https://gewu-academy.github.io/LingOps-Enhanced/>**
+> 源码在 [`site/index.html`](site/index.html)（单文件、零外部依赖），
+> 由 [`.github/workflows/pages.yml`](.github/workflows/pages.yml) 在 `site/` 变动时自动发布到 GitHub Pages。
 
 ---
 
@@ -249,9 +249,33 @@ ARTEX 自带 skills（`api-recon` 做 API 侦察、`playwright-cli` 做浏览器
 | **木马免杀 v1** | `/attack/trojan` 页 | 三档混淆 + 图片马 + `.htaccess` / `.user.ini` | `trojanplus.js` 1140 行 |
 | **木马生成器 v2** | 同上 | 加密信道 + 五种图片马 + 连接脚本 + 自检脚本 | 同上 |
 | **AWDP 深度审计** | `/awdp/*` 页「🔬 深度审计」 | 跨行污点分析 + 331 条规则，补官方漏报，可与官方对比 | `awdpplus.js` 2078 行 |
+| **审计命令行版** | `cli/awdp-audit` | 同一套引擎搬到终端：批量 / ZIP / JSON / 退出码卡 CI，只要 Node ≥ 18 | `cli/awdp-audit.js` 387 行 |
 | **AI 修复包** | 上传 ZIP 后自动弹出 | 源码 + 问题清单落盘 + 本地链接，直接交给 AI | `ext/lp_scan_server.py` |
 | **ARTEX 集成** | 侧边栏「ARTEX」 | LLM 自治渗透，全屏内嵌，一键同起 | `boot.js` 350 行 |
 | **Windows 免装 Python** | — | 包内自带 Python 3.11 embeddable | — |
+
+### 命令行版审计（CLI）
+
+深度审计的引擎不是 Python 后端，而是一段纯 JS（`awdpplus.js`），所以能直接搬到终端：
+**运行时从同一个文件里切出分析段**，网页端和 CLI 共用一份规则，改规则两边同时生效。
+
+```bash
+# 目录 / 单文件 / 比赛发的 ZIP 都能直接扔进去
+./cli/awdp-audit ./src
+./cli/awdp-audit challenge.zip -s critical
+./cli/awdp-audit ./src -f json -o report.json
+
+# 卡 CI：有高危就退出码 1
+./cli/awdp-audit . -s high --fail-on high -q
+```
+
+- 要求：**Node.js ≥ 18**，**零 npm 依赖**（ZIP 输入用到 `DecompressionStream`，Node 16 没有）
+- 输出：彩色文本（严重度着色 + 源码行 + **污点来源行**）、JSON、或 `-q` 一行汇总
+- 退出码：`0` 无达标问题 / `1` 有问题 / `2` 参数或运行错误
+- 常用选项：`-s/--min-sev`、`-c/--cat`、`-l/--lang`、`--exclude`、`--no-lowconf`、`--vendor`、`--list-rules`
+- 实测：整个仓库 130 个文件约 **220ms**；用自带语料回归 **34/34 命中、27/27 零误报**
+
+完整说明见 **[24 命令行版审计](docs/24-cli-audit.md)**。
 
 ---
 
@@ -444,7 +468,12 @@ LingOps-AWD-AWDP-Enhanced-v1.3.9-darwin-arm64/
 │   ├── corpus/regress/         #   12 个回归样本
 │   └── oracle/mask-audit.js    #   屏蔽层自测（会重新编译每个文件）
 │
-├── docs/                       # 23 章中文教程，5000+ 行
+├── cli/                        # 命令行版代码审计
+│   ├── awdp-audit.js           #   主程序（复用 awdpplus.js 引擎，零 npm 依赖）
+│   ├── awdp-audit              #   macOS / Linux 启动器
+│   └── awdp-audit.cmd          #   Windows 启动器
+│
+├── docs/                       # 24 章中文教程，5000+ 行
 ├── data/                       # 运行时 SQLite（.gitignore）
 └── CHANGELOG.md                # 每处改动的原因
 ```
@@ -585,4 +614,4 @@ python3 ext/tools/patch_labels.py           # 幂等补齐
 
 见 [CHANGELOG.md](CHANGELOG.md)。当前版本 **v1.3.2**。
 
-完整教程见 [`docs/README.md`](docs/README.md)（23 章，5000+ 行）。
+完整教程见 [`docs/README.md`](docs/README.md)（24 章，5000+ 行）。
