@@ -7,6 +7,38 @@
 
 ---
 
+## v1.3.9 · 2026-11-10
+
+### 深度审计扫自己：210 条命中里挑出 1 条真漏洞并修掉
+
+用引擎把 v1.3.8 两个包全量扫了一遍（darwin 210 条 / win64 208 条），逐条过了一遍：
+
+| 命中 | 条数 | 判定 |
+|---|---|---|
+| `antd-vendor` / `react-vendor` / 官方 `index-*.js` | 74 | 第三方 + 官方前端产物，非本仓库代码 |
+| `awdpplus.js` 规则表里的正则字面量（第 171–509 行） | 22 | 引擎自指：规则表本身就是「坏模式」清单 |
+| `lp_scan_server.py` 的中文知识库文案（`eval(base64_decode(...))` 之类举例） | 11 | 字符串数据，不执行 |
+| `trojanplus.js` 生成的木马载荷（`md5($k)` 派生 AES key、`.user.ini` 的 `auto_prepend_file`） | 12 | 产品功能，载荷本来就是后门 |
+| `ext/tools/awdp-lib-gen/gen*.py` 内容生成器里的载荷模板 | 52 | 生成知识库用的字符串 |
+| `tests/` 的加载器（`vm.runInContext`、`require` 相对路径） | 9 | 测试脚手架，设计如此 |
+| 同源相对 `fetch` / `new RegExp(转义后)` / 注释里的 `0.0.0.0` | 其余 | 误报 |
+| **`ext/tools/check_fixed.py` 的 `shell=True`** | **1** | **真漏洞，已修** |
+
+**那条真的**：`check_fixed.py` 的 `syntax_check()` 用 `sh('php -l "%s"' % path)` 拼字符串 + `shell=True`。`path` 是文件名，来自**上传的源码 zip**；`lp_scan_server.py` 的 `_safe_rel()` 只挡 `..`、绝对路径、盘符，**不挡 `$()`、反引号、引号、分号**。所以一个形如 `x$(touch PWNED).php` 的文件名能一路走到这里被执行：
+
+```
+修复前: php -l "x$(touch PWNED).php"     → shell 执行 $(...) ，PWNED 被创建
+修复后: subprocess.run(["php","-l",abspath])  → 文件名原样当参数，不解析
+```
+
+实战触发链：AWD/AWDP 的题目源码包（或队友给的包）里带一个恶意文件名 → 上传 → AI 修复包让 AI/人跑 `check_fixed.py` 验收 → 分析机被 RCE。已改成列表传参 + 传绝对路径（顺带挡掉以 `-` 开头的文件名被当成命令行开关）。
+
+同批检查过 `make_patch.py`（本来就是列表传参）、`_awdp_collect()` 的解压写入（`os.path.join(sdir,"src",*_safe_rel(rel).split("/"))`，`..` 已被挡，无 Zip Slip）、`subprocess.run(["ping",...,ip])`（列表传参，无注入）。
+
+> 说明：这类「用自己的引擎扫自己」只能证明**没有已知模式的问题**，不等于没有漏洞。上面这张表的意义是每条命中都有具体归因，不是靠「看着像误报」放过去的。
+
+---
+
 ## v1.3.8 · 2026-11-10
 
 ### 修复「下载下来 ARTEX 起来了但一个技能都没有」

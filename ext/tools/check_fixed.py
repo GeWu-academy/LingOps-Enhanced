@@ -36,20 +36,24 @@ BAD_PATTERNS = [
 EXT_LANG = {".php": "php", ".py": "python", ".js": "node", ".mjs": "node"}
 
 
-def sh(cmd):
-    p = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE,
+def sh(argv):
+    # 列表传参、不经 shell：文件名来自上传的源码包（可能含 " ; $() ` 等），
+    # 用 shell=True 拼字符串会把文件名变成命令。
+    p = subprocess.run(argv, stdout=subprocess.PIPE,
                        stderr=subprocess.STDOUT, text=True, errors="replace")
     return p.returncode, p.stdout.strip()
 
 
 def syntax_check(path):
     lang = EXT_LANG.get(os.path.splitext(path)[1].lower())
+    # 传绝对路径：以 - 开头的文件名不会被当成命令行开关
+    path = os.path.abspath(path)
     if lang == "php":
-        return sh('php -l "%s"' % path)
+        return sh(["php", "-l", path])
     if lang == "python":
-        return sh('python3 -m py_compile "%s"' % path)
+        return sh(["python3", "-m", "py_compile", path])
     if lang == "node":
-        return sh('node --check "%s"' % path)
+        return sh(["node", "--check", path])
     return 0, ""
 
 

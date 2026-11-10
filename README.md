@@ -263,8 +263,8 @@ ARTEX 自带 skills（`api-recon` 做 API 侦察、`playwright-cli` 做浏览器
 
 | 平台 | 文件 | 解压后目录 | 启动方式 |
 |---|---|---|---|
-| macOS (Apple Silicon) | `LingOps-AWD-AWDP-Enhanced-v1.3.8-darwin-arm64.zip` | `LingOps-AWD-AWDP-Enhanced-v1.3.8-darwin-arm64/` | `./start.sh` |
-| Windows x64 | `LingOps-AWD-AWDP-Enhanced-v1.3.8-win64.zip` | `LingOps-AWD-AWDP-Enhanced-v1.3.8-win64/` | 双击 `start.bat` |
+| macOS (Apple Silicon) | `LingOps-AWD-AWDP-Enhanced-v1.3.9-darwin-arm64.zip` | `LingOps-AWD-AWDP-Enhanced-v1.3.9-darwin-arm64/` | `./start.sh` |
+| Windows x64 | `LingOps-AWD-AWDP-Enhanced-v1.3.9-win64.zip` | `LingOps-AWD-AWDP-Enhanced-v1.3.9-win64/` | 双击 `start.bat` |
 
 > Windows 包**内置便携版 Python 3.11**（`python/` 目录，34 个文件），不用装 Python、不用 pip。
 > 想用自己装的：删掉 `python\` 目录，`start.bat` 会自动退回 `python` → `py -3`。
@@ -273,8 +273,8 @@ ARTEX 自带 skills（`api-recon` 做 API 侦察、`playwright-cli` 做浏览器
 
 ```bash
 # macOS
-unzip LingOps-AWD-AWDP-Enhanced-v1.3.8-darwin-arm64.zip
-cd LingOps-AWD-AWDP-Enhanced-v1.3.8-darwin-arm64
+unzip LingOps-AWD-AWDP-Enhanced-v1.3.9-darwin-arm64.zip
+cd LingOps-AWD-AWDP-Enhanced-v1.3.9-darwin-arm64
 ./start.sh
 ```
 
@@ -407,7 +407,7 @@ panel.html 与主页面同源（都是 127.0.0.1:12800）
 ## 七、目录结构
 
 ```
-LingOps-AWD-AWDP-Enhanced-v1.3.8-darwin-arm64/
+LingOps-AWD-AWDP-Enhanced-v1.3.9-darwin-arm64/
 ├── lingops-server              # 官方 Go 二进制（未修改，22 MB）
 ├── start.sh / stop.sh          # 一键启动 / 停止（macOS）
 ├── start.bat / stop.bat        # 一键启动 / 停止（Windows）
