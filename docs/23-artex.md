@@ -235,6 +235,86 @@ export OPENAI_API_KEY='sk-...'
 > 想用**本地模型**跑：Ollama 起 `ollama serve` 后，Base URL 填 `http://127.0.0.1:11434/v1`，
 > 模型名填 `qwen2.5:14b` 之类。小模型跑自治渗透效果一般，建议至少 14B 且上下文 ≥32K。
 
+### 5.1 挂着代理（Clash / Surge / FlClash）时必须填 Proxy
+
+典型报错：
+
+```
+Post "https://tokenrhythm.studio/v1/chat/completions": dial tcp 198.18.0.137:443: i/o timeout
+```
+
+**`198.18.0.137` 不是对方服务器 IP**，而是 Clash 系（FlClash / Clash Verge / Surge）的
+**fake-ip** 地址（`198.18.0.0/15` 是约定的假 IP 池）。链路是这样断的：
+
+1. 代理软件把 DNS 劫持成 fake-ip，`tokenrhythm.studio` 解析成 `198.18.0.137`；
+2. ARTEX 是 Go 程序，**`net/http` 不读 macOS 的「系统代理」设置**，只认 `HTTPS_PROXY`
+   环境变量或 profile 里的 `proxy` 字段；
+3. 于是它直接去 dial 这个假 IP，只有代理软件的 **TUN 模式**在接管时才能通；
+   切节点 / 内核重启 / TUN 掉线的那几秒，就是 `i/o timeout`；
+4. 而 `retry.connect.attempts` 默认是 **0**，一次超时就直接判 `model_error`，整个意图 blocked。
+
+**两步修好**（都在 ARTEX → 设置 → 模型里）：
+
+| 字段 | 填什么 | 作用 |
+|---|---|---|
+| Proxy | `http://127.0.0.1:7890`（填你自己代理的混合端口） | 走代理，彻底绕开 fake-ip，不再依赖 TUN 是否在线 |
+| 重试 → connect | 次数 `3`、间隔 `1000` ms | 网络抖动时自动重连，不再一次超时全盘失败 |
+
+另外**全局重试策略**默认是全 0，等于「一次失败就放弃」。在 ARTEX → 设置 → 重试策略里调成：
+
+```
+connect 3 次 / 1000ms   stream 2 次 / 1000ms   empty 2 次 / 1000ms
+breaker 3 次            intent 2 次 / 1000ms
+```
+
+命令行改也行（`<id>` 换成 `select id from llm_profiles` 查到的值）：
+
+```bash
+# 1) 确认代理端口在听（7890 换成你的）
+lsof -nP -iTCP:7890 -sTCP:LISTEN
+
+# 2) 改 profile
+export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
+PGPASSWORD=$(python3 -c "import json;print(json.load(open('artex/config.json'))['database']['password'])") \
+psql -h 127.0.0.1 -p 5433 -U artex -d artex -c "
+  update llm_profiles set proxy='http://127.0.0.1:7890',
+    retry_connect_attempts=3, retry_connect_interval_ms=1000 where id=<id>"
+
+# 3) 改全局重试策略（ARTEX 正在跑就改成走接口，见下面的验证脚本）
+TOK=$(curl -s -X POST http://127.0.0.1:8787/api/auth/login \
+  -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin123"}' \
+  | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
+curl -s -X POST http://127.0.0.1:8787/api/llm/retry-policy \
+  -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' \
+  -d '{"connect":{"attempts":3,"interval_ms":1000},
+       "empty":{"attempts":2,"interval_ms":1000},
+       "stream":{"attempts":2,"interval_ms":1000},
+       "breaker":{"attempts":3,"interval_ms":0},
+       "intent":{"attempts":2,"interval_ms":1000}}'
+```
+
+改完在 UI 点一次「测试」，返回 `{"ok":true,"reply":"..."}` 就成了。
+
+> **反向提醒**：填了 Proxy 之后，如果哪天**彻底退出**代理软件，7890 就没人听了，
+> 报错会变成 `connection refused`。这时把 Proxy 清空即可（直连走真实 DNS）。
+> 判断口诀：**代理开着就填 proxy，代理关了就清空**。
+>
+> **验证方法**（不启动任何扫描，只测连通性）：
+>
+> ```bash
+> TOK=$(curl -s -X POST http://127.0.0.1:8787/api/auth/login \
+>   -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin123"}' \
+>   | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
+> curl -s -X POST http://127.0.0.1:8787/api/llm/test -H "Authorization: Bearer $TOK" \
+>   -H 'Content-Type: application/json' \
+>   -d '{"provider":"openai","base_url":"https://tokenrhythm.studio/v1",
+>        "model":"deepseek-v4.1-flash-1017","api_key":"<你的key>",
+>        "proxy":"http://127.0.0.1:7890"}'
+> ```
+>
+> 注意这个接口的字段名是 **`provider`**（不是 `format`）；写错会静默退回 anthropic，
+> 报 `anthropic: status 404 ... 接口不存在`——那不是你的 Key 或 URL 有问题。
+
 ---
 
 ## 六、内置 skills
@@ -292,6 +372,9 @@ rm -rf artex/data artex/jwt.key
 | 任务一直不跑 | 没配 LLM。看日志有没有 `engine idle`，按第五章配 |
 | agent 里看不到任何技能 / 技能列表是空的 | `config.json` 的 `skill_dir` 指向了不存在的路径（典型是上游模板里的 `/opt/artex/skills`）。日志 `[config] skill directory:` 那行必须是你机器上真实存在的 `.../artex/skills`；改成 `./skills` 后重启 |
 | 启动日志 `[engine] no LLM provider configured` | 正常现象，不是报错。ARTEX 必须配 LLM 才能干活，按第五章配 |
+| 提问后秒回 `model_error` / `dial tcp 198.18.0.x:443: i/o timeout` | 代理软件的 fake-ip。ARTEX 是 Go 程序，不读系统代理设置，直连假 IP 只有 TUN 在跑时才通。给 profile 填 `proxy`（如 `http://127.0.0.1:7890`）+ 开重试，见 **5.1** |
+| 提问后 `anthropic: status 404 ... 接口不存在` | 模型格式被当成 anthropic 了。Base URL 是 OpenAI 兼容端点的话，确认格式选的是 OpenAI；`/api/llm/test` 的字段名是 `provider` 不是 `format` |
+| `connection refused`（7890 之类） | profile 里填了 `proxy` 但代理软件已退出。清空 Proxy 字段即可 |
 
 ---
 
