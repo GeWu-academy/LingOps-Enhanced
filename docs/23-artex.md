@@ -75,8 +75,8 @@ cd "/Users/shu/ctf/ctf工具包/LingOps_v0.2_darwin_arm64"
 
 日志位置：
 
-- `/tmp/lingops-artex.log` — ARTEX 主日志（**首次的 setup token 在这里**）
-- `/tmp/lingops-pg.log` — PostgreSQL 日志
+- `logs/lingops-artex.log` — ARTEX 主日志（**首次的 setup token 在这里**，项目 logs 目录需保持 0700 权限）
+- `logs/lingops-pg.log` — PostgreSQL 日志
 
 ### 首次使用需要装 PostgreSQL
 
@@ -90,12 +90,17 @@ brew install postgresql@16
 首次初始化数据库（只做一次）：
 
 ```bash
+mkdir -p logs && chmod 700 logs
 /opt/homebrew/opt/postgresql@16/bin/initdb -D /opt/homebrew/var/postgresql@16   # 若目录已存在则跳过
-/opt/homebrew/opt/postgresql@16/bin/pg_ctl -D /opt/homebrew/var/postgresql@16 -o "-p 5433" -l /tmp/lingops-pg.log start
-/opt/homebrew/opt/postgresql@16/bin/createuser -p 5433 -s artex
+/opt/homebrew/opt/postgresql@16/bin/pg_ctl -D /opt/homebrew/var/postgresql@16 -o "-p 5433" -l logs/lingops-pg.log start
+# 安全加固：使用 -S -D -R 创建普通权限用户，禁止授予超级用户(-s)
+/opt/homebrew/opt/postgresql@16/bin/createuser -p 5433 -S -D -R artex
 /opt/homebrew/opt/postgresql@16/bin/psql -p 5433 -d postgres -c "ALTER USER artex PASSWORD 'artex_local_2026';"
 /opt/homebrew/opt/postgresql@16/bin/createdb -p 5433 -O artex artex
+/opt/homebrew/opt/postgresql@16/bin/psql -p 5433 -d artex -c "GRANT ALL ON SCHEMA public TO artex;"
 ```
+
+> ⚠️ **安全提示**：请勿使用 `-s` 参数赋予 `artex` 超级用户权限，以遵循最小权限原则，防范潜在工具逃逸通过 PostgreSQL 的 `COPY ... PROGRAM` 执行宿主机系统命令。
 
 用户名/密码/库名/端口要和 `artex/config.json` 里的 `database` 段一致；
 想换端口就同时改 `config.json` 和 `start.sh` 顶部的 `PG_PORT`。
@@ -314,6 +319,72 @@ curl -s -X POST http://127.0.0.1:8787/api/llm/retry-policy \
 >
 > 注意这个接口的字段名是 **`provider`**（不是 `format`）；写错会静默退回 anthropic，
 > 报 `anthropic: status 404 ... 接口不存在`——那不是你的 Key 或 URL 有问题。
+
+### 5.2 上游有安全内容审查时（`cyber_policy` / `stream error`）
+
+典型现象：配置好后提问，几秒就回一条
+
+```
+openai-responses: stream error
+```
+
+**4 秒左右就失败、工具调用 0 次**——这不是网络、不是 Key、也不是 ARTEX 的 bug，
+而是**上游模型服务商对内容做了网络安全审查，直接把请求拦了**。
+
+判断方法（直接打上游，绕过 ARTEX）：
+
+```bash
+curl -sN -X POST "$BASE_URL/responses" \
+  -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
+  -d '{"model":"'"$MODEL"'","input":"payload / exploit / getshell 测试","stream":true}' \
+  | grep -E 'response.failed|cyber_policy|is_blocked'
+```
+
+命中审查时上游会回：
+
+```json
+{"type":"response.failed",
+ "response":{"error":{"code":"cyber_policy","type":"invalid_request",
+ "message":"This content was flagged for possible cybersecurity risk..."}}}
+```
+
+事件流里还会带 `openai_chatgpt_moderation_metadata` →
+`cyber_security.is_blocked: true`。
+
+**这类模型不能用来做安全测试**，换模型即可，不是配置问题。特征对照：
+
+| 现象 | 含义 |
+|---|---|
+| 4 秒内失败、0 次工具调用、`stream error` | 大概率是上游内容审查 |
+| 报 `cyber_policy` / `is_blocked: true` | 确认是上游审查，**换模型** |
+| 报 `rate_limit_exceeded` | 上游限流，等一会儿或换号 |
+| 报 `model_not_found` | 模型名在该账号下不可用 |
+
+**切换默认模型**（ARTEX 的 active profile 用专门接口，改 `is_default` 字段没用）：
+
+```bash
+TOK=$(curl -s -X POST http://127.0.0.1:8787/api/auth/login \
+  -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin123"}' \
+  | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
+
+# 看有哪些
+curl -s -H "Authorization: Bearer $TOK" http://127.0.0.1:8787/api/llm/profiles
+
+# 切到 id=1
+curl -s -X POST http://127.0.0.1:8787/api/llm/profiles/active \
+  -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' -d '{"id":1}'
+# → {"ok":true}，日志会出现 LLM reapplied from active profile
+```
+
+> **`POST /api/llm/profiles` 是整体更新**（必须带全字段），只传 `id` + `is_default`
+> 会报 `llm_profiles_format_check` 约束错误；切默认一律用 `/profiles/active`。
+>
+> 另外建议把被审查的模型设成 `pool_exclude = true`，否则主模型限流时故障转移会
+> 自动跳到它，又报一次 `stream error`：
+>
+> ```sql
+> update llm_profiles set pool_exclude = true where id = <被审查的id>;
+> ```
 
 ---
 
