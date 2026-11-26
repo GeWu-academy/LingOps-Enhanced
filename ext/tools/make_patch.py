@@ -88,8 +88,9 @@ def build_patch(src_root, new_root, allow_delete=False, strip=0):
             changed.append(("M", rel, len(a_lines), len(b_lines)))
         else:
             b_lines = to_lines(b_text)
-            body = ["--- /dev/null\n", "+++ b/%s\n" % rel,
-                    "@@ -0,0 +1,%d @@\n" % len(b_lines)] + ["+" + x for x in b_lines]
+            body = (["--- /dev/null\n", "+++ b/%s\n" % rel,
+                     "@@ -0,0 +1,%d @@\n" % len(b_lines)] + ["+" + x for x in b_lines]
+                    if b_lines else [])
             changed.append(("A", rel, 0, len(b_lines)))
         chunks.append("diff --git a/%s b/%s\n" % (rel, rel))
         if rel not in old:
@@ -99,8 +100,9 @@ def build_patch(src_root, new_root, allow_delete=False, strip=0):
         return "".join(chunks), changed
     for rel in sorted(set(old) - set(new)):
         a_lines = to_lines(read_text(old[rel]))
-        body = ["--- a/%s\n" % rel, "+++ /dev/null\n",
-                "@@ -1,%d +0,0 @@\n" % len(a_lines)] + ["-" + x for x in a_lines]
+        body = (["--- a/%s\n" % rel, "+++ /dev/null\n",
+                 "@@ -1,%d +0,0 @@\n" % len(a_lines)] + ["-" + x for x in a_lines]
+                if a_lines else [])
         chunks.append("diff --git a/%s b/%s\n" % (rel, rel))
         chunks.append("deleted file mode 100644\n")
         chunks.append(emit(body))
