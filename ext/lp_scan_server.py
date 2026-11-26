@@ -2583,15 +2583,33 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             pass
 
-    def _json_body(self, max_bytes: int = MAX_BODY) -> dict:
+    def _json_body(self, max_bytes: int = MAX_BODY) -> dict | None:
         try:
             length = int(self.headers.get("Content-Length") or 0)
-            if length > max_bytes:
-                raise ValueError("body too large")
-            raw = self.rfile.read(length) if length else b"{}"
-            return json.loads(raw.decode("utf-8") or "{}")
-        except Exception:
-            return {}
+            if length < 0:
+                raise ValueError("negative content length")
+        except ValueError:
+            self.close_connection = True
+            self._send(400, {"error": "非法 Content-Length"}, extra={"Connection": "close"})
+            return None
+        if length > max_bytes:
+            self.close_connection = True
+            self._send(413, {"error": "请求体过大"}, extra={"Connection": "close"})
+            return None
+        raw = self.rfile.read(length) if length else b"{}"
+        if length and len(raw) != length:
+            self.close_connection = True
+            self._send(400, {"error": "请求体不完整"}, extra={"Connection": "close"})
+            return None
+        try:
+            params = json.loads(raw.decode("utf-8") or "{}")
+        except (UnicodeDecodeError, ValueError):
+            self._send(400, {"error": "请求体必须是合法 JSON 对象"})
+            return None
+        if not isinstance(params, dict):
+            self._send(400, {"error": "请求体必须是 JSON 对象"})
+            return None
+        return params
 
     def _serve_awdp(self, path: str):
         rest = path[len("/awdp/"):]
@@ -2691,6 +2709,8 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path.rstrip("/") or "/"
         if path == "/api/awdp/session":
             params = self._json_body(AWDP_MAX_BODY)
+            if params is None:
+                return
             if not params:
                 self._send(400, {"error": "请求体为空或过大"})
                 return
@@ -2704,6 +2724,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/awdp/delete":
             params = self._json_body()
+            if params is None:
+                return
             sdir = awdp_session_dir(str(params.get("id") or ""))
             if not sdir:
                 self._send(404, {"error": "会话不存在"})
@@ -2717,6 +2739,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/discover":
             params = self._json_body()
+            if params is None:
+                return
             targets = (params.get("targets") or "").strip()
             if not targets:
                 self._send(400, {"error": "请填写探测目标"})
@@ -2736,6 +2760,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/scan":
             params = self._json_body()
+            if params is None:
+                return
             if not (params.get("targets") or "").strip():
                 self._send(400, {"error": "请填写扫描目标"})
                 return
