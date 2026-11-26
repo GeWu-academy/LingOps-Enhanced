@@ -39,7 +39,7 @@ RE_FILE = re.compile(
 RE_END = re.compile(_LEAD + r"[ \t]*END[ \t]*FILE" + _TAIL, re.I)
 # ```php:path/to/file.php  或  ```path/to/file.php
 RE_FENCE_PATH = re.compile(r"^[ \t]*```[a-zA-Z0-9_+-]*[ \t]*:[ \t]*(?P<p>[^\s`]+)[ \t]*$")
-RE_FENCE = re.compile(r"^[ \t]*```")
+RE_FENCE = re.compile(r"^[ \t]*(?P<marker>`{3,})(?P<info>[^`]*)$")
 
 
 def clean_path(p):
@@ -61,8 +61,7 @@ def parse(text):
     order = []
     cur = None
     buf = []
-    fence = False          # 是否处于 ``` 代码块内
-    started_by_fence = False
+    fence = None          # 外层代码围栏；正文内的 Markdown 围栏必须保留
 
     def flush():
         nonlocal cur, buf
@@ -80,21 +79,21 @@ def parse(text):
             p = clean_path(m.group("p"))
             if p:
                 cur, buf = p, []
-                started_by_fence = bool(RE_FENCE_PATH.match(ln))
-                fence = started_by_fence
+                fence = "```" if RE_FENCE_PATH.match(ln) else None
                 continue
         if cur is not None:
             if RE_END.match(ln):
                 flush()
-                fence, started_by_fence = False, False
+                fence = None
                 continue
-            if RE_FENCE.match(ln):
-                if started_by_fence and not fence:
-                    fence = True
+            marker = RE_FENCE.match(ln)
+            if marker:
+                if fence is None and not any(line.strip() for line in buf):
+                    fence = marker.group("marker")
                     continue
-                if fence:
+                if fence and len(marker.group("marker")) >= len(fence) and not marker.group("info").strip():
                     flush()
-                    fence, started_by_fence = False, False
+                    fence = None
                     continue
             buf.append(ln)
             continue
