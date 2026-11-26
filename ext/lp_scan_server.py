@@ -571,7 +571,10 @@ def awdp_new_id(name: str) -> str:
 def awdp_session_dir(sid: str) -> str | None:
     if not re.fullmatch(r"[\w\-.\u4e00-\u9fff]{1,120}", sid or ""):
         return None
-    d = os.path.join(awdp_root(), sid)
+    root = os.path.realpath(awdp_root())
+    d = os.path.realpath(os.path.join(root, sid))
+    if d == root or os.path.dirname(d) != root:
+        return None
     return d if os.path.isdir(d) else None
 
 
