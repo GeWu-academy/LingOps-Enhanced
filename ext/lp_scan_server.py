@@ -2606,7 +2606,7 @@ class Handler(BaseHTTPRequestHandler):
             return None
         try:
             params = json.loads(raw.decode("utf-8") or "{}")
-        except (UnicodeDecodeError, ValueError):
+        except (UnicodeDecodeError, ValueError, RecursionError):
             self._send(400, {"error": "请求体必须是合法 JSON 对象"})
             return None
         if not isinstance(params, dict):
