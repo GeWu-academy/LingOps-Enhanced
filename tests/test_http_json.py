@@ -57,6 +57,22 @@ class HttpJsonTests(unittest.TestCase):
         status, body, _ = self.request('{"id": ' + '9' * 5000 + '}')
         self.assertEqual(status, 400, body)
 
+    def test_excessive_json_nesting_is_a_client_error(self):
+        for nested in ['[' * 10000 + '0' + ']' * 10000,
+                       '{"child":' * 10000 + '0' + '}' * 10000]:
+            with self.subTest(nested=nested[:20]):
+                payload = '{"nested":' + nested + '}'
+                # JSON recursion limits differ across supported Python versions.
+                try:
+                    json.loads(payload)
+                except RecursionError:
+                    expected = 400
+                else:
+                    expected = 404  # Valid object; the delete request has no id.
+                status, body, _ = self.request(payload)
+                self.assertEqual(status, expected, body)
+                self.test_health_remains_available()
+
     def test_negative_content_length_is_rejected(self):
         status, body, closed = self.request('', -1)
         self.assertEqual(status, 400, body)
