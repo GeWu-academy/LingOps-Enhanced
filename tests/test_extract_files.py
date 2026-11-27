@@ -35,6 +35,22 @@ class ExtractFilesTests(unittest.TestCase):
         self.assertEqual(extract_files.parse('```python:src/app.py\nvalue = 3\n```'),
                          [('app.py', 'value = 3\n')])
 
+    def test_markdown_leading_code_blocks_are_content(self):
+        for path in ['README.md', 'NOTES.MD', 'guide.markdown', 'page.mdx']:
+            for opener in ['```python', '```', '````python']:
+                for tail in ['', '\nInstallation instructions']:
+                    with self.subTest(path=path, opener=opener, tail=tail):
+                        fence = opener.split('python')[0]
+                        body = opener + '\nprint(1)\n' + fence + tail
+                        reply = f'=== FILE: {path} ===\n{body}\n=== END FILE ==='
+                        self.assertEqual(extract_files.parse(reply), [(path, body + '\n')])
+
+    def test_explicit_markdown_wrappers_are_unwrapped(self):
+        for language in ['markdown', 'md', 'mdx']:
+            with self.subTest(language=language):
+                reply = f'=== FILE: README.md ===\n```{language}\n# Title\n```\n=== END FILE ==='
+                self.assertEqual(extract_files.parse(reply), [('README.md', '# Title\n')])
+
     def test_unfenced_file_marker_still_works(self):
         self.assertEqual(extract_files.parse('=== FILE: a.py ===\nvalue = 1\n=== END FILE ==='),
                          [('a.py', 'value = 1\n')])
