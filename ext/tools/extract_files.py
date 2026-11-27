@@ -89,8 +89,13 @@ def parse(text):
             marker = RE_FENCE.match(ln)
             if marker:
                 if fence is None and not any(line.strip() for line in buf):
-                    fence = marker.group("marker")
-                    continue
+                    # Markdown can legitimately begin with a code example. Only an
+                    # explicitly labelled Markdown fence identifies a wrapper there.
+                    markdown = os.path.splitext(cur)[1].lower() in {".md", ".markdown", ".mdx"}
+                    info = marker.group("info").strip().lower()
+                    if not markdown or info in {"md", "markdown", "mdx"}:
+                        fence = marker.group("marker")
+                        continue
                 if fence and len(marker.group("marker")) >= len(fence) and not marker.group("info").strip():
                     flush()
                     fence = None
